@@ -148,9 +148,100 @@ def replay(
 @app.command()
 def review(
     capability: Annotated[str, typer.Option(help="Capability id to review.")],
+    repropose: Annotated[
+        bool, typer.Option(help="Ask the model again instead of reusing cached proposals.")
+    ] = False,
+    by: Annotated[str, typer.Option(help="Who is reviewing. Recorded in provenance.")] = "",
+    provider: Annotated[
+        str, typer.Option(help="Provider for the proposal pass. Text-only, so groq by default.")
+    ] = "groq",
 ) -> None:
-    """Approve proposed outcomes and promote a capability from draft to approved."""
-    raise NotImplementedError
+    """Approve proposed outcomes and promote a capability from draft to approved.
+
+    The proposals are a model's guesses and are advisory. Nothing reaches the capability
+    without being accepted here.
+    """
+    import getpass
+    from pathlib import Path
+
+    from cua.recording.outcomes import (
+        OutcomeProposal,
+        apply_review,
+        approve,
+        describe_proposal,
+        load_proposals,
+        propose,
+        save_proposals,
+    )
+    from cua.replay.engine import CAPABILITY_DIR, load_capability
+    from cua.schema.models import Outcome
+
+    artifact = load_capability(capability)
+    directory = Path(CAPABILITY_DIR)
+    reviewer = by or getpass.getuser()
+
+    proposals = None if repropose else load_proposals(capability, directory)
+    if proposals is None:
+        from cua.llm.gemini import GeminiClient
+        from cua.llm.groq import GroqClient
+
+        llm = GroqClient() if provider == "groq" else GeminiClient()
+        typer.echo(f"Asking {provider} what could go wrong in {capability}...")
+        proposals = propose(artifact, llm)
+        save_proposals(capability, proposals, directory)
+
+    if not proposals:
+        typer.echo("No proposals. Nothing to review.")
+        raise typer.Exit(code=1)
+
+    typer.echo(
+        f"\n{len(proposals)} proposed outcome(s) for {capability}. These are guesses: the model "
+        "has never seen this application fail.\n"
+    )
+
+    def decide(proposal: OutcomeProposal) -> Outcome | None:
+        """Ask the reviewer. Accept as-is, reject, or edit the parts worth editing."""
+        typer.echo(describe_proposal(proposal))
+        choice = typer.prompt("  [a]ccept / [r]eject / [e]dit", default="r").strip().lower()[:1]
+        if choice == "r":
+            typer.echo("  rejected\n")
+            return None
+
+        outcome = proposal.outcome
+        if choice == "e":
+            outcome = outcome.model_copy(
+                update={
+                    "name": typer.prompt("  name", default=outcome.name),
+                    "kind": typer.prompt("  kind", default=outcome.kind),
+                    "message_template": typer.prompt("  message", default=outcome.message_template),
+                }
+            )
+            key = next(iter(outcome.detect.params), None)
+            if key is not None:
+                params = dict(outcome.detect.params)
+                params[key] = typer.prompt(f"  detect.{key}", default=str(params[key]))
+                outcome = outcome.model_copy(
+                    update={"detect": outcome.detect.model_copy(update={"params": params})}
+                )
+            # Re-validate: an edit can make a business outcome carry a recovery.
+            outcome = Outcome.model_validate(outcome.model_dump(mode="json"))
+
+        typer.echo(f"  accepted as {outcome.kind}/{outcome.name}\n")
+        return outcome
+
+    reviewed = apply_review(artifact, proposals, decide, approved_by=reviewer)
+    kept = len(reviewed.outcomes) - len(artifact.outcomes)
+    typer.echo(f"{kept} outcome(s) accepted, {len(proposals) - kept} rejected.")
+
+    if typer.confirm("Promote this capability to approved?", default=False):
+        reviewed = approve(reviewed, approved_by=reviewer)
+
+    path = directory / f"{capability}.json"
+    path.write_text(reviewed.model_dump_json(indent=2), encoding="utf-8")
+    typer.echo(
+        f"saved {path} (state={reviewed.provenance.state}, "
+        f"outcomes_reviewed={reviewed.provenance.outcomes_reviewed})"
+    )
 
 
 @app.command()

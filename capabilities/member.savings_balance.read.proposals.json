@@ -1,0 +1,165 @@
+[
+  {
+    "outcome": {
+      "name": "member_not_found",
+      "kind": "business",
+      "detect": {
+        "kind": "text_present",
+        "params": {
+          "text": "Member not found"
+        },
+        "negate": false
+      },
+      "applies_to": [
+        "read-balance"
+      ],
+      "recovery": null,
+      "message_template": "The requested member does not exist.",
+      "partial_outputs": []
+    },
+    "step_id": "read-balance",
+    "rationale": "If the member id in the URL is invalid the UI shows a clear 'Member not found' message.",
+    "accepted": false
+  },
+  {
+    "outcome": {
+      "name": "account_not_found",
+      "kind": "business",
+      "detect": {
+        "kind": "text_present",
+        "params": {
+          "text": "Account not found"
+        },
+        "negate": false
+      },
+      "applies_to": [
+        "read-balance"
+      ],
+      "recovery": null,
+      "message_template": "The specified savings account could not be located.",
+      "partial_outputs": []
+    },
+    "step_id": "read-balance",
+    "rationale": "When the sub\u2011account code is wrong or has been closed the page displays 'Account not found'.",
+    "accepted": false
+  },
+  {
+    "outcome": {
+      "name": "permission_denied",
+      "kind": "hard_failure",
+      "detect": {
+        "kind": "text_present",
+        "params": {
+          "text": "You do not have permission to view this account"
+        },
+        "negate": false
+      },
+      "applies_to": [
+        "read-balance"
+      ],
+      "recovery": null,
+      "message_template": "Permission denied for reading the savings balance.",
+      "partial_outputs": []
+    },
+    "step_id": "read-balance",
+    "rationale": "A security check can block the view and the UI shows an explicit permission error.",
+    "accepted": false
+  },
+  {
+    "outcome": {
+      "name": "session_expired",
+      "kind": "hard_failure",
+      "detect": {
+        "kind": "url_matches",
+        "params": {
+          "pattern": ".*\\/login.*"
+        },
+        "negate": false
+      },
+      "applies_to": [
+        "read-balance"
+      ],
+      "recovery": null,
+      "message_template": "Session expired \u2013 user must re\u2011authenticate.",
+      "partial_outputs": []
+    },
+    "step_id": "read-balance",
+    "rationale": "When the session times out the app redirects to the login page; the URL pattern reveals this.",
+    "accepted": false
+  },
+  {
+    "outcome": {
+      "name": "maintenance_notice",
+      "kind": "recoverable",
+      "detect": {
+        "kind": "text_present",
+        "params": {
+          "text": "Maintenance in progress"
+        },
+        "negate": false
+      },
+      "applies_to": [
+        "read-balance"
+      ],
+      "recovery": {
+        "action": "retry_step",
+        "max_attempts": 1,
+        "target": null
+      },
+      "message_template": "Temporary maintenance notice \u2013 retry after a short wait.",
+      "partial_outputs": []
+    },
+    "step_id": "read-balance",
+    "rationale": "Occasional maintenance banners appear; they can be dismissed or retried.",
+    "accepted": false
+  },
+  {
+    "outcome": {
+      "name": "balance_not_rendered",
+      "kind": "recoverable",
+      "detect": {
+        "kind": "control_absent",
+        "params": {
+          "name": "4,182.55",
+          "role": "cell"
+        },
+        "negate": false
+      },
+      "applies_to": [
+        "read-balance"
+      ],
+      "recovery": {
+        "action": "retry_step",
+        "max_attempts": 1,
+        "target": null
+      },
+      "message_template": "Balance cell not yet rendered \u2013 retry loading.",
+      "partial_outputs": []
+    },
+    "step_id": "read-balance",
+    "rationale": "If the page is still loading the balance cell may be absent; a retry can succeed.",
+    "accepted": false
+  },
+  {
+    "outcome": {
+      "name": "unexpected_error",
+      "kind": "hard_failure",
+      "detect": {
+        "kind": "text_present",
+        "params": {
+          "text": "An unexpected error occurred"
+        },
+        "negate": false
+      },
+      "applies_to": [
+        "read-balance"
+      ],
+      "recovery": null,
+      "message_template": "The application hit an unexpected error \u2013 manual investigation required.",
+      "partial_outputs": []
+    },
+    "step_id": "read-balance",
+    "rationale": "Generic error banners indicate a failure that automation cannot recover from.",
+    "accepted": false
+  }
+]
