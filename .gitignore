@@ -25,3 +25,6 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
+
+# uiautomation drops this next to the cwd on every run.
+@AutomationLog.txt

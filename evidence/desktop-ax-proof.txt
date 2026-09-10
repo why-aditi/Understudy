@@ -1,0 +1,52 @@
+Desktop accessibility proof
+==============================================================================
+
+application : 'Calculator' (WindowControl)
+platform    : Windows UI Automation via uiautomation, win32
+resolver    : cua.replay.resolver.matches, unmodified - the same function replay uses
+
+UIA tree, mapped onto the role vocabulary the web surface emits:
+
+      - button 'Minimize Calculator'
+      - button 'Maximize Calculator'
+      - button 'Close Calculator'
+        - button 'Open Navigation'
+          - button 'Open history flyout'
+          - region 'Memory controls'
+            - button 'Clear all memory'
+            - button 'Memory recall'
+            - button 'Memory add'
+            - button 'Memory subtract'
+            - button 'Memory store'
+            - button 'Open memory flyout'
+          - region 'Display controls'
+            - button 'Percent'
+            - button 'Clear entry'
+            - button 'Clear'
+            - button 'Backspace'
+          - region 'Standard functions'
+            - button 'Reciprocal'
+            - button 'Square'
+            - button 'Square root'
+          - region 'Standard operators'
+
+Resolving recorded candidates against that tree:
+
+  role_name                        resolved                    'Seven'
+  anchor_relative / within_region  resolved                    'Seven'
+  anchor_relative / following      resolved                    'Five'
+  text_content                     resolved                    'Equals'
+  dom_hint                         SKIPPED (surface_specific)  cannot be expressed on a non-web surface
+
+The relations are structural, not coincidence - vary the argument:
+
+  within_region index=3            -> 'Three'
+  following 'Seven'                -> 'Eight'
+  following 'Memory recall'        -> 'Memory add'
+
+------------------------------------------------------------------------------
+4 of 4 portable candidates resolved against a native desktop tree,
+with no change to the resolver and no DesktopSurface in existence.
+
+dom_hint was skipped, which is the point: it is the one strategy the schema flags
+surface_specific, and the one that cannot survive leaving the browser.

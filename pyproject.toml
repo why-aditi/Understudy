@@ -26,6 +26,7 @@ dev = [
     "types-pyyaml>=6.0.12.20260906",
     "jsonschema>=4.26.0",
     "types-jsonschema>=4.26.0.20260518",
+    "uiautomation>=2.0.29",
 ]
 
 [build-system]
@@ -56,6 +57,10 @@ select = [
     "T20",  # no print in library code
     "RUF",
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# scripts/ are one-shot entry points whose output *is* the deliverable.
+"scripts/*" = ["T201"]
 
 [tool.mypy]
 python_version = "3.11"
