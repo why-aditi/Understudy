@@ -278,9 +278,82 @@ def review(
 def stability(
     capability: Annotated[str, typer.Option(help="Capability id to measure.")],
     n: Annotated[int, typer.Option("-n", "--runs", help="Number of replay runs.")] = 10,
+    params: Annotated[str, typer.Option(help="JSON object of capability parameters.")] = "{}",
+    headless: Annotated[bool, typer.Option(help="Hide the browser.")] = True,
+    attended: Annotated[bool, typer.Option(help="Permit measuring a draft capability.")] = False,
 ) -> None:
-    """Replay a capability N times and report pass rate and locator-strategy usage."""
-    raise NotImplementedError
+    """Replay a capability N times and report pass rate and locator-strategy usage.
+
+    Costs no model calls, which is the point: measuring determinism is only affordable
+    because replay does not think.
+    """
+    import json
+
+    from cua.discovery.runner import new_run_id
+    from cua.evidence.logger import RunLogger
+    from cua.policy.engine import PolicyContext, PolicyEngine
+    from cua.policy.rules import load_policy
+    from cua.replay.engine import (
+        ReplayEngine,
+        ReplayError,
+        can_act_through,
+        load_capability,
+        validate_params,
+    )
+    from cua.replay.resolver import Resolver
+    from cua.replay.stability import measure, render, write_report
+    from cua.schema.models import ReplayResult
+    from cua.session.registry import SessionRegistry
+    from cua.surfaces.base import Action
+    from cua.surfaces.web import WebSurface
+
+    try:
+        artifact = load_capability(capability)
+        supplied = json.loads(params)
+        validate_params(artifact.parameters, supplied)
+    except json.JSONDecodeError as exc:
+        typer.echo(f"error: --params is not valid JSON: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    except ReplayError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    engine = PolicyEngine(load_policy())
+    session_id = f"stability-{new_run_id()}"
+
+    with SessionRegistry(headless=headless) as sessions:
+        sessions.open(session_id)
+        session = sessions.attach(session_id)
+        session.lock.acquire("automation", by=session_id)
+        surface = WebSurface(session.page, session.lock)
+
+        def replay_once(attempt: int) -> ReplayResult:
+            """One run, from the entry point, into its own evidence directory."""
+            with RunLogger(f"{session_id}-run{attempt + 1:02d}") as run_log:
+                entry = Action(kind="navigate", value=artifact.entry.url)
+                verdict = engine.check(
+                    entry, PolicyContext(mode="replay", capability_id=artifact.id)
+                )
+                if not verdict.allowed:
+                    raise typer.BadParameter(f"policy refused the entry point: {verdict.reason}")
+                surface.act(entry)
+                return ReplayEngine(
+                    surface=surface,
+                    policy=engine,
+                    logger=run_log,
+                    resolver=Resolver(page=session.page, actionable=can_act_through),
+                ).run(artifact, supplied, attended=attended)
+
+        typer.echo(f"replaying {capability} {n} times...")
+        report = measure(artifact, replay_once, runs=n)
+
+    path = write_report(report)
+    typer.echo("")
+    typer.echo(render(report))
+    typer.echo("")
+    typer.echo(f"written to {path}")
+    if report.passes < report.runs:
+        raise typer.Exit(code=1)
 
 
 @app.command()

@@ -37,9 +37,9 @@ deterministically with no model in the loop, and handed to a human and back when
 stuck. What is missing is the catalog that exposes capabilities as agent-callable tools, and
 the overlay that lets one artifact serve two tenants.
 
-`cua stability` still raises `NotImplementedError`.
+Every CLI subcommand is implemented.
 
-376 tests, ruff and mypy strict clean, green on every push.
+392 tests, ruff and mypy strict clean, green on every push.
 
 ---
 
@@ -185,6 +185,55 @@ pass vacuously.
 On top of the four, a fifth guard: an AST test fails the build if a structured log field
 shadows a `LogRecord` attribute. That one is invisible until a handler puts the logger at
 INFO, and then it is fatal — it was found the hard way.
+
+---
+
+## Measuring determinism rather than claiming it
+
+"Replay is deterministic" is a claim; `cua stability` turns it into a number. It costs no
+model calls, which is the whole point — running a capability ten times is free.
+
+```
+$ cua stability --capability member.search --params '{"member_id": "12345"}' -n 10
+
+  runs         10
+  pass rate    10/10 (100%)
+  deterministic True
+  duration     median 134 ms
+
+  per control, which candidate actually fired:
+    enter-id             primary=role_name        role_name 10x
+    read-name            primary=role_name        role_name 10x
+    submit-search        primary=role_name        role_name 10x
+```
+
+The pass rate is the least interesting number here. **Which candidate fired** is the one that
+matters: a capability can pass ten out of ten while quietly resolving through its third
+candidate every run, which means the recorded primary is already dead and only the chain is
+holding it up. That is a finding about our own ranking heuristic, so `non_primary_rate` is
+computed per control and anything notable is written into a `findings` list in plain
+sentences. `deterministic` is deliberately stricter than the pass rate: ten passes that each
+resolve through a different candidate are ten passes and no determinism at all.
+
+Written to `evidence/stability/replay-x10.json`.
+
+**A finding this command produced on its first real use.** Replaying the same capability for a
+*different* member fails 10/10:
+
+```
+    read-name            primary=role_name        never resolved
+
+  findings:
+    - read-name: never resolved in any run - the whole candidate chain was exhausted
+      every time, so nothing recorded for this control works against the screen as it is now.
+```
+
+Every candidate the synthesizer recorded for that control is tied to the data that happened
+to be on screen at record time — `role_name` on *the member's own name*, anchors on their id
+and status. The one structural, data-independent candidate is `region_ordinal`, and the web
+surface cannot act through it. So a capability with a `member_id` parameter only works for the
+member it was recorded against. That is measured, not suspected, and it is the next thing to
+fix in the synthesizer.
 
 ---
 

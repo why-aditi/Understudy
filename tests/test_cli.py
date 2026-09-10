@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-import pytest
 from typer.testing import CliRunner
 
 from cua.cli import app
@@ -19,15 +18,22 @@ def test_help_lists_every_command() -> None:
         assert name in result.output
 
 
-@pytest.mark.parametrize(
-    ("argv"),
-    [
-        ["stability", "--capability", "member.balance.lookup"],
-    ],
-)
-def test_command_raises_not_implemented(argv: list[str]) -> None:
-    result = runner.invoke(app, argv)
-    assert isinstance(result.exception, NotImplementedError)
+def test_no_subcommand_is_still_a_stub() -> None:
+    """Every command in the CLI surface is implemented; none raises NotImplementedError.
+
+    `operator` is excluded from invocation on purpose: serve() blocks forever by design.
+    """
+    for name in COMMANDS:
+        if name == "operator":
+            continue
+        result = runner.invoke(app, [name, "--capability", "nope", "--goal", "g", "--target", "t"])
+        assert not isinstance(result.exception, NotImplementedError), name
+
+
+def test_stability_is_wired_to_the_measurement() -> None:
+    result = runner.invoke(app, ["stability", "--capability", "nope.does.not.exist"])
+    assert result.exit_code == 2
+    assert "cannot read capability" in result.output
 
 
 def test_operator_is_wired_to_the_console() -> None:
