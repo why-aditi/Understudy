@@ -1,8 +1,9 @@
 # secrets
 .env
 
-# run output — may contain captured page state
-evidence/
+# run output - may contain captured page state. Anchored to the repo root: an
+# unanchored "evidence/" also matches src/cua/evidence/ and silently drops the package.
+/evidence/
 
 # browser artifacts
 .playwright/
@@ -10,15 +11,15 @@ playwright-report/
 test-results/
 *.webm
 *.trace.zip
-screenshots/
+/screenshots/
 
 # python
 __pycache__/
 *.py[cod]
 .venv/
 *.egg-info/
-build/
-dist/
+/build/
+/dist/
 
 # tool caches
 .mypy_cache/
