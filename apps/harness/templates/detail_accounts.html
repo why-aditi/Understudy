@@ -1,0 +1,20 @@
+{% extends "_base.html" %}
+{% block title %}{{ labels.accounts_label }}{% endblock %}
+{% block heading %}{{ labels.accounts_label }}{% endblock %}
+{% block body %}
+<table border="1" cellpadding="4" cellspacing="0" id="{{ eid() }}">
+<tr bgcolor="#dddddd">
+  <th id="{{ eid() }}">{{ headings[0] }}</th><th id="{{ eid() }}">{{ headings[1] }}</th>
+  <th id="{{ eid() }}">Opened</th><th id="{{ eid() }}">&nbsp;</th>
+</tr>
+{% for a in accounts %}
+<tr>
+  <td id="{{ eid() }}">{{ a.kind if kind_first else a.ref }}</td>
+  <td id="{{ eid() }}">{{ a.ref if kind_first else a.kind }}</td>
+  <td id="{{ eid() }}">{{ a.opened }}</td>
+  <td id="{{ eid() }}"><a target="_top" id="{{ eid() }}"
+      href="/{{ tenant }}/members/{{ member_id }}/accounts/{{ a.ref }}{{ carry(fail) }}">Open</a></td>
+</tr>
+{% endfor %}
+</table>
+{% endblock %}

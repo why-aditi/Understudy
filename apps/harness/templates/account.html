@@ -1,0 +1,16 @@
+{% extends "_base.html" %}
+{% block title %}Account {{ account.ref }}{% endblock %}
+{% block heading %}Account {{ account.ref }}{% endblock %}
+{% block body %}
+<table border="0" cellpadding="3" id="{{ eid() }}">
+<tr><td id="{{ eid() }}"><b>Account reference</b></td><td id="{{ eid() }}">{{ account.ref }}</td></tr>
+<tr><td id="{{ eid() }}"><b>Account type</b></td><td id="{{ eid() }}">{{ account.kind }}</td></tr>
+<tr><td id="{{ eid() }}"><b>{{ labels.balance_label }}</b></td><td id="{{ eid() }}">{{ account.balance }}</td></tr>
+<tr><td id="{{ eid() }}"><b>Opened</b></td><td id="{{ eid() }}">{{ account.opened }}</td></tr>
+</table>
+<table border="0" id="{{ eid() }}"><tr>
+<td id="{{ eid() }}"><a href="/{{ tenant }}/members/{{ member_id }}{{ carry(fail) }}" id="{{ eid() }}">Back to member</a></td>
+<td id="{{ eid() }}"><a href="/{{ tenant }}/members/{{ member_id }}/accounts/{{ account.ref }}/confirm{{ carry(fail) }}"
+    id="{{ eid() }}">Confirm balance enquiry</a></td>
+</tr></table>
+{% endblock %}

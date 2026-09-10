@@ -10,6 +10,9 @@ dependencies = [
     "playwright>=1.62.0",
     "pyyaml>=6.0.3",
     "python-dotenv>=1.2.3",
+    "fastapi>=0.141.1",
+    "jinja2>=3.1.6",
+    "uvicorn>=0.52.4",
 ]
 
 [project.scripts]
@@ -33,7 +36,9 @@ packages = ["src/cua"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-src = ["src", "tests"]
+# Include the repo root so `apps` resolves as first-party. Without it ruff calls it a
+# third-party import here and a first-party one elsewhere, which diverges from CI.
+src = [".", "src", "tests"]
 # design docs contain python code blocks; ruff must not reformat them
 extend-exclude = ["*.md"]
 
@@ -61,3 +66,5 @@ files = ["src", "tests", "apps"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+# apps/ is dev tooling, not part of the wheel, so it needs the repo root on the path.
+pythonpath = ["."]

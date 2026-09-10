@@ -1,0 +1,8 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Member {{ member_id }} - {{ labels.brand }}</title></head>
+<frameset rows="130,*" id="{{ eid() }}">
+  <frame name="summary" id="{{ eid() }}" src="/{{ tenant }}/members/{{ member_id }}/summary{{ carry(fail) }}">
+  <frame name="accounts" id="{{ eid() }}" src="/{{ tenant }}/members/{{ member_id }}/accounts{{ carry(fail) }}">
+  <noframes><body><p>This screen requires frames.</p></body></noframes>
+</frameset>
+</html>

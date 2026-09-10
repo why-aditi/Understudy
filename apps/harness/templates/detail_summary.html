@@ -1,0 +1,10 @@
+{% extends "_base.html" %}
+{% block title %}Member {{ member_id }}{% endblock %}
+{% block heading %}Member {{ member_id }}{% endblock %}
+{% block body %}
+<table border="0" cellpadding="3" id="{{ eid() }}">
+<tr><td id="{{ eid() }}"><b>Name</b></td><td id="{{ eid() }}">{{ member.name }}</td></tr>
+<tr><td id="{{ eid() }}"><b>Status</b></td><td id="{{ eid() }}">{{ member.status }}</td></tr>
+<tr><td id="{{ eid() }}"><b>Joined</b></td><td id="{{ eid() }}">{{ member.joined }}</td></tr>
+</table>
+{% endblock %}

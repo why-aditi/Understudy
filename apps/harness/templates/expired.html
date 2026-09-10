@@ -1,0 +1,7 @@
+{% extends "_base.html" %}
+{% block title %}Session expired{% endblock %}
+{% block heading %}Session expired{% endblock %}
+{% block body %}
+<p id="{{ eid() }}">Your session has expired after a period of inactivity.</p>
+<a href="/{{ tenant }}/" id="{{ eid() }}">Sign in again</a>
+{% endblock %}

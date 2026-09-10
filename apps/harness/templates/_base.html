@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>{% block title %}{% endblock %} - {{ labels.brand }}</title></head>
+<body>
+<table width="100%" cellpadding="4" cellspacing="0" border="0" id="{{ eid() }}">
+<tr><td bgcolor="#003366" id="{{ eid() }}"><font color="#ffffff" size="4"><b>{{ labels.brand }}</b></font></td></tr>
+<tr><td id="{{ eid() }}"><table width="100%" border="0" id="{{ eid() }}"><tr>
+  <td width="170" valign="top" bgcolor="#eeeeee" id="{{ eid() }}">
+    <table border="0" id="{{ eid() }}">
+    <tr><td id="{{ eid() }}"><a href="/{{ tenant }}/{{ carry(fail) }}" id="{{ eid() }}">Member search</a></td></tr>
+    <tr><td id="{{ eid() }}"><a href="/{{ tenant }}/{{ carry(fail) }}" id="{{ eid() }}">Daily reports</a></td></tr>
+    </table>
+  </td>
+  <td valign="top" id="{{ eid() }}"><h1 id="{{ eid() }}">{% block heading %}{% endblock %}</h1>
+  {% block body %}{% endblock %}</td>
+</tr></table></td></tr>
+<tr><td bgcolor="#eeeeee" id="{{ eid() }}">
+  <font size="1" id="{{ eid() }}">{{ labels.brand }} &mdash; version {{ labels.version }}</font>
+</td></tr>
+</table>
+</body></html>

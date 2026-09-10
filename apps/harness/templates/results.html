@@ -1,0 +1,17 @@
+{% extends "_base.html" %}
+{% block title %}Search results{% endblock %}
+{% block heading %}Search results{% endblock %}
+{% block body %}
+<table border="1" cellpadding="4" cellspacing="0" id="{{ eid() }}">
+<tr bgcolor="#dddddd">
+  <th id="{{ eid() }}">Member</th><th id="{{ eid() }}">Name</th>
+  <th id="{{ eid() }}">Status</th><th id="{{ eid() }}">&nbsp;</th>
+</tr>
+<tr>
+  <td id="{{ eid() }}">{{ member_id }}</td>
+  <td id="{{ eid() }}">{{ member.name }}</td>
+  <td id="{{ eid() }}">{{ member.status }}</td>
+  <td id="{{ eid() }}"><a href="/{{ tenant }}/members/{{ member_id }}{{ carry(fail) }}" id="{{ eid() }}">Open</a></td>
+</tr>
+</table>
+{% endblock %}

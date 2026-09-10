@@ -1,0 +1,11 @@
+{% extends "_base.html" %}
+{% block title %}Service notice{% endblock %}
+{% block heading %}Service notice{% endblock %}
+{% block body %}
+<div role="dialog" aria-label="Service notice" id="{{ eid() }}">
+<table border="1" bgcolor="#ffffcc" cellpadding="6" id="{{ eid() }}"><tr><td id="{{ eid() }}">
+<p id="{{ eid() }}">Scheduled maintenance begins at 23:00. Acknowledge to continue to the sub-account.</p>
+<a href="/{{ tenant }}/members/{{ member_id }}/accounts/{{ ref }}?fail={{ fail }}&amp;ack=1" id="{{ eid() }}">Acknowledge</a>
+</td></tr></table>
+</div>
+{% endblock %}

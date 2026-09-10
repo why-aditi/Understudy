@@ -1,0 +1,49 @@
+# Surface A: a third-party open-source back-office app, unmodified.
+#
+# Dolibarr is pulled from its official image and installs itself on first boot. Nothing in
+# this directory patches, themes, or extends it - the only thing we add is synthetic data,
+# and that goes in through the database, not through the application code. The automation
+# gets whatever markup Dolibarr renders for a human operator.
+
+services:
+  db:
+    image: mariadb:11
+    container_name: understudy-dolibarr-db
+    environment:
+      MARIADB_ROOT_PASSWORD: rootpw
+      MARIADB_DATABASE: dolibarr
+      MARIADB_USER: dolibarr
+      MARIADB_PASSWORD: dolibarrpw
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  app:
+    image: dolibarr/dolibarr:21
+    container_name: understudy-dolibarr
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DOLI_DB_HOST: db
+      DOLI_DB_NAME: dolibarr
+      DOLI_DB_USER: dolibarr
+      DOLI_DB_PASSWORD: dolibarrpw
+      DOLI_ADMIN_LOGIN: admin
+      DOLI_ADMIN_PASSWORD: adminpw
+      DOLI_URL_ROOT: http://localhost:8081
+      DOLI_INSTALL_AUTO: 1
+      DOLI_PROD: 0
+      PHP_INI_DATE_TIMEZONE: UTC
+    ports:
+      - "8081:80"
+    volumes:
+      - doc-data:/var/www/documents
+
+volumes:
+  db-data:
+  doc-data:

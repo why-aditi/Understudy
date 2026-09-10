@@ -1,0 +1,9 @@
+{% extends "_base.html" %}
+{% block title %}Permission denied{% endblock %}
+{% block heading %}Permission denied{% endblock %}
+{% block body %}
+<table border="1" bgcolor="#ffeeee" cellpadding="6" id="{{ eid() }}"><tr><td id="{{ eid() }}">
+<p id="{{ eid() }}">Your role does not permit access to this member record.</p>
+<p id="{{ eid() }}">Contact the servicing supervisor if you believe this is an error.</p>
+</td></tr></table>
+{% endblock %}

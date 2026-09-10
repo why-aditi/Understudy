@@ -1,0 +1,11 @@
+{% extends "_base.html" %}
+{% block title %}Enquiry confirmed{% endblock %}
+{% block heading %}Enquiry confirmed{% endblock %}
+{% block body %}
+<table border="0" cellpadding="3" id="{{ eid() }}">
+<tr><td id="{{ eid() }}"><b>Reference</b></td><td id="{{ eid() }}">ENQ-{{ account.ref }}</td></tr>
+<tr><td id="{{ eid() }}"><b>Member</b></td><td id="{{ eid() }}">{{ member.name }}</td></tr>
+<tr><td id="{{ eid() }}"><b>{{ labels.balance_label }} recorded</b></td><td id="{{ eid() }}">{{ account.balance }}</td></tr>
+</table>
+<p id="{{ eid() }}">The balance enquiry has been logged against this sub-account.</p>
+{% endblock %}
