@@ -35,6 +35,30 @@ INTERACTIVE_ROLES = frozenset(
 # spliced out and their children hoisted rather than dropped with the subtree.
 PRESENTATION_ROLES = frozenset({"presentation", "none", "generic", "InlineTextBox", "LineBreak"})
 
+# Containers that survive pruning even with no accessible name, because the anchor_relative
+# strategy is expressed in terms of them: "the link in the row that says Savings" is not
+# answerable once the rows have been spliced out. Keep this aligned with the container roles
+# in replay/resolver.py - dropping one here silently disables a relation there.
+STRUCTURAL_ROLES = frozenset(
+    {
+        "table",
+        "LayoutTable",
+        "grid",
+        "treegrid",
+        "row",
+        "LayoutTableRow",
+        "rowgroup",
+        "list",
+        "listitem",
+        "form",
+        "region",
+        "article",
+        "dialog",
+        "main",
+        "navigation",
+    }
+)
+
 ROW_ROLES = frozenset({"row"})
 
 
@@ -86,8 +110,13 @@ def _prune_node(node: AXNode, counters: dict[str, int]) -> list[AXNode]:
 
     name = _truncate(node.name, counters)
     value = _truncate(node.value, counters)
-    if node.role not in INTERACTIVE_ROLES and not name and not value:
+    keep = node.role in INTERACTIVE_ROLES or node.role in STRUCTURAL_ROLES
+    if not keep and not name and not value:
         return children
+
+    # A structural container with nothing left in it is scaffolding, not structure.
+    if node.role in STRUCTURAL_ROLES and not children and not name and not value:
+        return []
 
     return [AXNode(role=node.role, name=name, value=value, children=children)]
 

@@ -1,0 +1,314 @@
+{
+  "$defs": {
+    "Condition": {
+      "description": "A testable claim about the current screen.\n\nOne type serves two jobs: as a step's checkpoint it asserts the step worked, and as an\noutcome's detector it recognises a situation. They are the same question asked for\ndifferent reasons, so they are the same type.",
+      "properties": {
+        "kind": {
+          "description": "What is being checked: control_present, control_absent, text_present, url_matches, or value_equals.",
+          "enum": [
+            "control_present",
+            "control_absent",
+            "text_present",
+            "url_matches",
+            "value_equals"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": true,
+          "description": "Arguments for the check. control_present/absent: role, name. text_present: text. url_matches: pattern. value_equals: role, name, value.",
+          "title": "Params",
+          "type": "object"
+        },
+        "negate": {
+          "default": false,
+          "description": "Whether to invert the result of the check.",
+          "title": "Negate",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "Condition",
+      "type": "object"
+    },
+    "ControlDescriptor": {
+      "description": "A control, described by what it is plus every way we know to find it.\n\nThe candidate list is the point. Recording one locator per control produces an artifact\nthat breaks on the first UI change; recording a ranked chain produces one that degrades.",
+      "properties": {
+        "role": {
+          "description": "Accessibility role of the control: button, textbox, link, cell, combobox.",
+          "title": "Role",
+          "type": "string"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Accessible name of the control, if it has one. None where nothing is named.",
+          "title": "Name"
+        },
+        "candidates": {
+          "description": "Ranked locator candidates, strongest first. The resolver walks them in order and records which one actually fired, so a non-primary candidate firing is a drift signal. Ordering is maintained by the model, not by the caller.",
+          "items": {
+            "$ref": "#/$defs/Locator"
+          },
+          "minItems": 1,
+          "title": "Candidates",
+          "type": "array"
+        }
+      },
+      "required": [
+        "role",
+        "candidates"
+      ],
+      "title": "ControlDescriptor",
+      "type": "object"
+    },
+    "Locator": {
+      "description": "One way to find a control, with an honest estimate of how well it will age.\n\nA locator is a candidate, never the answer. `ControlDescriptor` holds several and the\nresolver tries them in order, so a single brittle strategy failing is survivable.",
+      "properties": {
+        "strategy": {
+          "description": "How to find the control. role_name uses the accessibility role and name; anchor_relative locates it by its relationship to nearby text and is the primary strategy on legacy surfaces; region_ordinal falls back to position within a named region; text_content matches visible text and is brittle to localisation; dom_hint is a css or xpath selector and a terminal fallback.",
+          "enum": [
+            "role_name",
+            "anchor_relative",
+            "region_ordinal",
+            "text_content",
+            "dom_hint"
+          ],
+          "title": "Strategy",
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": true,
+          "description": "Strategy-specific arguments. role_name: role, name, match. anchor_relative: anchor_text, anchor_role, relation (same_row|following|within_region), target_role, index. region_ordinal: region, role, index. text_content: text, match. dom_hint: css or xpath.",
+          "title": "Params",
+          "type": "object"
+        },
+        "stability_score": {
+          "description": "Heuristic 0-1 estimate of how well this candidate survives UI change. Scored, not measured: named and anchor-based candidates score higher, index-dependent and generated-id-dependent ones lower, and surface-specific ones are capped.",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Stability Score",
+          "type": "number"
+        },
+        "verified_unique_at_record": {
+          "description": "Whether this candidate was re-resolved against the live page at record time and matched exactly one node. A false here means the candidate was kept without proof and should not be trusted as a primary.",
+          "title": "Verified Unique At Record",
+          "type": "boolean"
+        },
+        "surface_specific": {
+          "default": false,
+          "description": "Whether this candidate only works on the surface it was recorded against. True for dom_hint and nothing else. A non-web resolver skips these entirely, which is what keeps the artifact portable (C3).",
+          "title": "Surface Specific",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "strategy",
+        "stability_score",
+        "verified_unique_at_record"
+      ],
+      "title": "Locator",
+      "type": "object"
+    },
+    "Outcome": {
+      "description": "A situation the capability knows how to recognise, and what it means.\n\n`kind` is the load-bearing type in this project. The brief names conflating a business\nanswer with a system failure as the most common design mistake, so the distinction lives\nin the type system rather than in a convention:\n\n- **business** - a legitimate answer the caller asked for. \"No such member\" is a result,\n  not an exception. Returns status=business_outcome.\n- **recoverable** - a condition replay handles and continues past: a known interstitial,\n  one bounded retry on a transient load.\n- **hard_failure** - stop, capture evidence, return something debuggable. Unknown page\n  state, a checkpoint that failed with no matching detector, an exhausted locator chain.",
+      "properties": {
+        "name": {
+          "description": "Stable identifier for this outcome, e.g. member_not_found.",
+          "title": "Name",
+          "type": "string"
+        },
+        "kind": {
+          "description": "business: a legitimate answer for the caller, returned as a result rather than an error. recoverable: handled and continued past. hard_failure: stop and surface a debuggable error.",
+          "enum": [
+            "business",
+            "recoverable",
+            "hard_failure"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "detect": {
+          "$ref": "#/$defs/Condition",
+          "description": "The condition that identifies this outcome on screen."
+        },
+        "applies_to": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "const": "any",
+              "type": "string"
+            }
+          ],
+          "default": "any",
+          "description": "Step ids this outcome can occur on, or 'any' when it can happen anywhere in the flow, as a session timeout can.",
+          "title": "Applies To"
+        },
+        "recovery": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Recovery"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How to recover. Permitted only when kind is recoverable."
+        },
+        "message_template": {
+          "description": "Human-readable explanation, returned to the caller with the result.",
+          "title": "Message Template",
+          "type": "string"
+        },
+        "partial_outputs": {
+          "description": "Names of declared outputs that are still valid when this outcome fires. A business outcome often carries real data even though the flow stopped early.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Partial Outputs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "detect",
+        "message_template"
+      ],
+      "title": "Outcome",
+      "type": "object"
+    },
+    "Override": {
+      "description": "One field of one step, replaced for a tenant.",
+      "properties": {
+        "step_id": {
+          "description": "Id of the step this override applies to.",
+          "title": "Step Id",
+          "type": "string"
+        },
+        "field_path": {
+          "description": "Dotted path to the field within the step, e.g. target.candidates.0.params.name.",
+          "title": "Field Path",
+          "type": "string"
+        },
+        "value": {
+          "description": "Replacement value for that field.",
+          "title": "Value"
+        }
+      },
+      "required": [
+        "step_id",
+        "field_path",
+        "value"
+      ],
+      "title": "Override",
+      "type": "object"
+    },
+    "Recovery": {
+      "description": "What to do about a recoverable outcome, and how many times to try it.",
+      "properties": {
+        "action": {
+          "description": "The remedy: dismiss_dialog closes a known interstitial, retry_step repeats the step, wait_and_retry pauses first, reauthenticate re-establishes the session.",
+          "enum": [
+            "dismiss_dialog",
+            "retry_step",
+            "wait_and_retry",
+            "reauthenticate"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "max_attempts": {
+          "description": "How many times the remedy may be applied before this becomes a failure.",
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Max Attempts",
+          "type": "integer"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ControlDescriptor"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The control the remedy acts on, where it needs one (a dialog's close button)."
+        }
+      },
+      "required": [
+        "action",
+        "max_attempts"
+      ],
+      "title": "Recovery",
+      "type": "object"
+    }
+  },
+  "description": "A tenant's differences from a base capability, kept additive and auditable.\n\nReuse is the default and specialisation is a diff. Copying a capability per tenant would\nwork once and rot immediately; an overlay states only what differs and can be checked\nagainst the base version it was verified for.",
+  "properties": {
+    "base_capability_id": {
+      "description": "Id of the capability this overlay specialises.",
+      "title": "Base Capability Id",
+      "type": "string"
+    },
+    "base_version": {
+      "description": "Version of the base this overlay was written against.",
+      "title": "Base Version",
+      "type": "string"
+    },
+    "tenant_id": {
+      "description": "Tenant this overlay applies to.",
+      "title": "Tenant Id",
+      "type": "string"
+    },
+    "overrides": {
+      "description": "Field-level replacements, applied by path.",
+      "items": {
+        "$ref": "#/$defs/Override"
+      },
+      "title": "Overrides",
+      "type": "array"
+    },
+    "added_outcomes": {
+      "description": "Outcomes that exist only for this tenant, added to the base's set.",
+      "items": {
+        "$ref": "#/$defs/Outcome"
+      },
+      "title": "Added Outcomes",
+      "type": "array"
+    },
+    "verified_against": {
+      "description": "The base version this overlay was last confirmed compatible with. If the base has moved past it, the overlay needs review and unattended replay is refused.",
+      "title": "Verified Against",
+      "type": "string"
+    }
+  },
+  "required": [
+    "base_capability_id",
+    "base_version",
+    "tenant_id",
+    "verified_against"
+  ],
+  "title": "CapabilityOverlay",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://understudy.local/schema/capabilityoverlay.json"
+}

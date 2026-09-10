@@ -1,0 +1,185 @@
+{
+  "$defs": {
+    "FailureDetail": {
+      "description": "Everything needed to debug a failed replay without re-running it.",
+      "properties": {
+        "step_id": {
+          "description": "Step that failed.",
+          "title": "Step Id",
+          "type": "string"
+        },
+        "expected": {
+          "description": "What the step expected to be true afterwards.",
+          "title": "Expected",
+          "type": "string"
+        },
+        "observed": {
+          "description": "What was actually observed instead.",
+          "title": "Observed",
+          "type": "string"
+        },
+        "candidates_tried": {
+          "description": "Locator strategies attempted for the control, in the order they were tried.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Candidates Tried",
+          "type": "array"
+        },
+        "evidence_paths": {
+          "description": "Paths to evidence captured at the point of failure.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Paths",
+          "type": "array"
+        }
+      },
+      "required": [
+        "step_id",
+        "expected",
+        "observed"
+      ],
+      "title": "FailureDetail",
+      "type": "object"
+    },
+    "OutcomeResult": {
+      "description": "The outcome that fired during a replay, reported to the caller.",
+      "properties": {
+        "name": {
+          "description": "Name of the outcome that fired.",
+          "title": "Name",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Its class: business, recoverable or hard_failure.",
+          "enum": [
+            "business",
+            "recoverable",
+            "hard_failure"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "message": {
+          "description": "Rendered explanation for the caller.",
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "message"
+      ],
+      "title": "OutcomeResult",
+      "type": "object"
+    }
+  },
+  "description": "The contract a calling agent sees.\n\nThe status field is the reason this type exists: a caller can tell \"this member does not\nexist\" from \"the automation broke\" without parsing a message string.",
+  "properties": {
+    "status": {
+      "description": "success: the flow completed and outputs are present. business_outcome: a declared business situation occurred and is described in outcome. failure: the automation could not complete, described in failure.",
+      "enum": [
+        "success",
+        "business_outcome",
+        "failure"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "capability_id": {
+      "description": "Id of the capability that was replayed.",
+      "title": "Capability Id",
+      "type": "string"
+    },
+    "capability_version": {
+      "description": "Version of the capability that was replayed.",
+      "title": "Capability Version",
+      "type": "string"
+    },
+    "run_id": {
+      "description": "Id of this replay run, linking it to evidence on disk.",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "outputs": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Declared outputs, present on success and possibly partial on a business outcome.",
+      "title": "Outputs"
+    },
+    "outcome": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/OutcomeResult"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The outcome that fired, when one did."
+    },
+    "failure": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/FailureDetail"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Debuggable detail, present only when status is failure."
+    },
+    "steps_executed": {
+      "description": "How many steps ran before the result.",
+      "minimum": 0,
+      "title": "Steps Executed",
+      "type": "integer"
+    },
+    "duration_ms": {
+      "description": "Wall-clock duration of the replay.",
+      "minimum": 0,
+      "title": "Duration Ms",
+      "type": "integer"
+    },
+    "locator_usage": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Per control, which locator strategy actually fired. A non-primary strategy here is a drift signal, and it costs nothing to record.",
+      "title": "Locator Usage",
+      "type": "object"
+    },
+    "drift_signals": {
+      "description": "Signals that the surface has moved since this capability was recorded.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Drift Signals",
+      "type": "array"
+    }
+  },
+  "required": [
+    "status",
+    "capability_id",
+    "capability_version",
+    "run_id",
+    "steps_executed",
+    "duration_ms"
+  ],
+  "title": "ReplayResult",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://understudy.local/schema/replayresult.json"
+}

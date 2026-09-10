@@ -1,6 +1,7 @@
 """Structural guards for the architectural constraints. A violation here is a bug, not a nit."""
 
 import ast
+import logging
 from pathlib import Path
 
 import pytest
@@ -157,3 +158,53 @@ def test_the_c2_checker_is_not_fooled_by_a_return_annotation() -> None:
 
 def test_the_c2_checker_accepts_a_verdict_passed_in_by_the_caller() -> None:
     assert ungated_act_calls(RECEIVES_VERDICT_SOURCE) == []
+
+
+# --- structured logging: `extra` must not shadow LogRecord's own attributes -------------
+
+# logging raises KeyError if `extra` carries any of these, but only once a handler has the
+# logger at INFO. It is therefore invisible in unit tests and fatal in a real run.
+RESERVED_LOG_KEYS = frozenset(vars(logging.LogRecord("", 0, "", 0, "", None, None))) | {
+    "message",
+    "asctime",
+}
+
+
+def _log_field_names(tree: ast.AST) -> list[tuple[int, str]]:
+    """Every key passed as a structured log field, with its line number.
+
+    Two shapes carry them: `logger.info(event, extra={...})` and `RunLogger.event(name, k=v)`.
+    """
+    found: list[tuple[int, str]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        for keyword in node.keywords:
+            if keyword.arg == "extra" and isinstance(keyword.value, ast.Dict):
+                found.extend(
+                    (key.lineno, key.value)
+                    for key in keyword.value.keys
+                    if isinstance(key, ast.Constant) and isinstance(key.value, str)
+                )
+            elif keyword.arg and isinstance(node.func, ast.Attribute) and node.func.attr == "event":
+                found.append((node.lineno, keyword.arg))
+    return found
+
+
+def test_no_log_field_shadows_a_logrecord_attribute() -> None:
+    """`extra={"name": ...}` raises KeyError the moment the logger is at INFO."""
+    offenders = [
+        f"{path.relative_to(SRC.parents[1])}:{line} uses reserved log field {field!r}"
+        for path in sorted(SRC.rglob("*.py"))
+        for line, field in _log_field_names(ast.parse(path.read_text(encoding="utf-8")))
+        if field in RESERVED_LOG_KEYS
+    ]
+    assert not offenders, "; ".join(offenders)
+
+
+def test_the_reserved_log_key_checker_catches_a_real_collision() -> None:
+    source = '_log.info("evt", extra={"name": x, "control_name": y})'
+    fields = [field for _, field in _log_field_names(ast.parse(source))]
+    assert "name" in fields and "control_name" in fields
+    assert "name" in RESERVED_LOG_KEYS
+    assert "control_name" not in RESERVED_LOG_KEYS

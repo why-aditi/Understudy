@@ -20,6 +20,23 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked --all-groups
 
+      # Locator synthesis is verified against a real Chromium accessibility tree, so the
+      # browser is a test dependency. Cached on the resolved playwright version.
+      - name: Resolve playwright version
+        id: pw
+        run: |
+          V=$(uv run python -c "from importlib.metadata import version; print(version('playwright'))")
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+      - name: Cache browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+
+      - name: Install chromium
+        run: uv run playwright install --with-deps chromium
+
       - name: Lint
         run: uv run ruff check .
 
