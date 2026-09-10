@@ -31,6 +31,7 @@ This is an in-progress take-home build. What is real, and what is not, stated pl
 | `catalog/` — capabilities as callable typed tools | **not yet implemented** |
 | overlay resolution — one artifact across two tenants | **not yet implemented** |
 | `surfaces/desktop.py`, `llm/ollama.py` | **interface only**, deliberately |
+| the descriptor format off the web | **proven, not built** — resolved against a live Windows AX tree, no `DesktopSurface` |
 
 So: a capability can be recorded from a live application, reviewed by a human, replayed
 deterministically with no model in the loop, and handed to a human and back when it gets
@@ -152,8 +153,51 @@ Four things the type system enforces rather than the documentation asking for:
 
 Locator candidates span all five strategies, and the three `anchor_relative` relations
 (`same_row`, `following`, `within_region`) resolve **structurally against the accessibility
-tree** rather than the DOM. That is what makes the params portable: the same locator resolves
-against a desktop AX tree with the same code.
+tree** rather than the DOM. That is what makes the params portable — and it is checked rather
+than asserted, below.
+
+---
+
+## The descriptor format, off the web
+
+The claim C3 rests on is that a recorded control descriptor is not a web artifact: strip the
+one strategy flagged `surface_specific` and the rest should resolve against any accessibility
+tree. That is easy to assert and cheap to check, so it is checked.
+
+`scripts/desktop_ax_proof.py` dumps the UI Automation tree of **Windows Calculator**, maps UIA
+control types onto the role vocabulary the web surface emits, and resolves candidates against
+it through `cua.replay.resolver.matches` — unmodified, the same function replay itself calls.
+
+```
+application : 'Calculator' (WindowControl)
+resolver    : cua.replay.resolver.matches, unmodified
+
+  role_name                        resolved                    'Seven'
+  anchor_relative / within_region  resolved                    'Seven'
+  anchor_relative / following      resolved                    'Five'
+  text_content                     resolved                    'Equals'
+  dom_hint                         SKIPPED (surface_specific)  cannot be expressed here
+
+The relations are structural, not coincidence - vary the argument:
+
+  within_region index=3            -> 'Three'
+  following 'Seven'                -> 'Eight'
+  following 'Memory recall'        -> 'Memory add'
+```
+
+Four of four portable candidates resolve. `dom_hint` being skipped is the *positive* result:
+it is the one strategy the schema derives as surface-specific, and this is the first surface
+with no DOM for it to mean anything against.
+
+The varied-argument block matters more than the count. Resolving `index=7` to `'Seven'` on a
+calculator is exactly the kind of result that could be coincidence; changing the argument and
+getting the correspondingly different control is what rules that out.
+
+Making this work required a ten-entry dict mapping UIA control types to ARIA roles, and no
+change to the resolver. **There is no `DesktopSurface` and this does not build one** — it is
+a proof that the seam is real, not an implementation behind it. Full output in
+`evidence/desktop-ax-proof.txt`; re-run it with
+`uv run python scripts/desktop_ax_proof.py` on Windows.
 
 ---
 
@@ -173,7 +217,9 @@ read the source**, not by convention.
 - **C3 — no surface-specific locator is ever a primary strategy.** Role, name and containment
   lead; a DOM hint is a terminal fallback. *Enforced twice:* no file under `surfaces/` may
   mention `query_selector`, `evaluate`, `css=` or `xpath=`, and the schema itself derives
-  `surface_specific` from the strategy and caps its score at 0.3.
+  `surface_specific` from the strategy and caps its score at 0.3. *Demonstrated:* the
+  remaining strategies resolve against a live Windows accessibility tree through the
+  unmodified resolver — see [above](#the-descriptor-format-off-the-web).
 - **C4 — replay makes zero model calls.** *Enforced three ways:* a static import-graph walk
   finds no `cua.llm` reachable from `cua.replay.engine`; a subprocess imports the engine and
   asserts no `cua.llm` module ends up in `sys.modules`; and the constructor is checked to
@@ -312,7 +358,8 @@ src/cua/
   evidence/   JSONL logger with redaction
 apps/harness/ fault-injection target app, tenant-a and tenant-b
 capabilities/ saved artifacts, overlays, and the exported JSON Schema
-evidence/     run output (gitignored)
+scripts/      one-shot proofs whose output is the deliverable, not library code
+evidence/     run output (gitignored, except the checked-in desktop proof)
 ```
 
 Design documents: `prd.md` (scope, schema, milestones) and `tech.md` (architecture, stack,
