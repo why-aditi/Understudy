@@ -48,6 +48,12 @@ class DiscoveryConfig(BaseModel):
     max_steps: int = 25
     wall_clock_seconds: float = 300.0
     no_progress_limit: int = 3
+    vendor_product: str = "unknown"
+    """Product identifier recorded on the draft artifact.
+
+    Nothing on a page reliably says which product it is, so this is supplied rather than
+    guessed. It defaults to "unknown", which is at least honest.
+    """
     screenshots: bool = False
     """Capture a screenshot per observation into the evidence directory.
 
@@ -215,6 +221,7 @@ class DiscoveryRunner:
                 acted=self._acted,
                 tenant_id=self.config.tenant,
                 outputs=outputs,
+                vendor_product=self.config.vendor_product,
             )
         except (ValueError, SynthesisError) as exc:
             self.logger.event("capability_not_emitted", why=str(exc), stop_reason=stop)

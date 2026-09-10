@@ -25,16 +25,21 @@ import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from cua.recording.synthesizer import synthesize_unverified
+from cua.recording.synthesizer import SynthesisError, find_target, synthesize_unverified
 from cua.schema.models import (
     AppRef,
     Capability,
+    ControlDescriptor,
     EntryPoint,
     OutputSpec,
     Provenance,
     Step,
 )
-from cua.surfaces.base import Action, AXNode
+from cua.surfaces.base import (
+    Action,
+    ActionTarget,
+    AXNode,
+)
 
 _log = logging.getLogger(__name__)
 
@@ -72,6 +77,49 @@ def step_id(index: int, action: Action) -> str:
     return f"{index:02d}-{slug(name, 24)}"
 
 
+def _normalise(text: str) -> str:
+    """Whitespace-insensitive comparison text. `inner_text` and an AX name differ in spacing."""
+    return " ".join(text.split()).strip()
+
+
+def _describes_what_happened(acted_step: ActedStep, target: "ActionTarget") -> bool:
+    """Whether the tree resolves this target to the control the action actually hit.
+
+    Only an `extract` carries ground truth - the surface returns the text it read - so only
+    an extract can be checked. It is worth checking: the synthesizer resolves against the
+    accessibility tree while the surface resolves against the live page, and when those two
+    disagreed the draft recorded a descriptor for a control the run never touched, with
+    nothing to say so. Found by replaying a real discovery trace against its own snapshots.
+    """
+    extracted = acted_step.extracted
+    if acted_step.action.kind != "extract" or extracted is None:
+        return True
+    try:
+        node = find_target(acted_step.tree, target)
+    except SynthesisError:
+        return False
+    seen = _normalise(extracted)
+    if not seen:
+        return True
+    subtree = _normalise(" ".join(filter(None, _texts(node))))
+    return seen in subtree or subtree in seen
+
+
+def _texts(node: AXNode) -> list[str]:
+    out = [node.name or "", node.value or ""]
+    for child in node.children:
+        out.extend(_texts(child))
+    return out
+
+
+def _is_repeat_read(steps: list[Step], action: Action, target: ControlDescriptor | None) -> bool:
+    """Whether this is the same read as the step before it."""
+    if action.kind != "extract" or not steps or target is None:
+        return False
+    previous = steps[-1]
+    return previous.action == "extract" and previous.target == target
+
+
 def assemble(
     *,
     goal: str,
@@ -95,7 +143,25 @@ def assemble(
         identifier = step_id(index, action)
         target = None
         if action.target is not None:
+            if not _describes_what_happened(acted_step, action.target):
+                # The descriptor would name a control this action did not touch. Recording
+                # it would be worse than recording nothing: the artifact would assert a
+                # control the run never used, and replay would look correct doing it.
+                _log.info(
+                    "assemble_descriptor_mismatch",
+                    extra={"step": identifier, "extracted_len": len(acted_step.extracted or "")},
+                )
+                continue
             target = synthesize_unverified(acted_step.tree, action.target)
+
+        if _is_repeat_read(steps, action, target):
+            # A read has no side effect, so reading the same control twice in a row is the
+            # model repeating itself, not two things the capability needs to do.
+            _log.info("assemble_repeat_read_dropped", extra={"step": identifier})
+            if action.kind == "extract" and acted_step.extracted is not None:
+                extract_steps[acted_step.extracted] = steps[-1].id
+            continue
+
         steps.append(
             Step(
                 id=identifier,

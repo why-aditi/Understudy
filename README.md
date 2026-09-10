@@ -177,7 +177,7 @@ What is real, and what is not, stated plainly:
 
 `REPORT.md` is the engineering report: what was built, where it is weak, and what was cut.
 
-511 tests, ruff and mypy strict clean, green on every push.
+524 tests, ruff and mypy strict clean, green on every push.
 
 A discovery writes `evidence/discovery-<run_id>/`:
 
@@ -193,6 +193,12 @@ capability.json  the draft artifact the run produced
 into a `Capability` a human can review and replay. It is emitted as a **draft** — `state=draft`,
 no outcomes, every candidate `verified_unique_at_record=false` — because the model chose those
 controls and nobody has agreed they are the right ones.
+
+The draft only records what the run actually did. An `extract` carries ground truth, so its
+descriptor is cross-checked against the text the surface returned and dropped if they disagree:
+a descriptor naming a control the run never touched is worse than no step at all. Consecutive
+reads of the same control collapse to one, because a read has no side effect and repeating it
+is the model repeating itself.
 
 A replay writes `evidence/replay-<run_id>/` with `run.jsonl` and `result.json`. Which of the
 three outcome classes a run was is in `result.json`'s `status`, not in the directory name: the

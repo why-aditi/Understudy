@@ -175,32 +175,42 @@ class WebSurface:
         if target.near is None:
             return self._by_role(self._page, target).nth(target.nth)
 
-        # ponytail: a fixed container list. The general form is the anchor_relative strategy
-        # in replay/resolver.py, which will rank these as ranked candidates.
+        best: Locator | None = None
+        fewest = 0
+        # Across every container role, not the first role that happens to match. Comparing
+        # only within a role made CONTAINER_ROLES' order load-bearing: `cell near="Name"` on
+        # the results screen stopped at `row`, because the header row holding "Name" has
+        # columnheaders rather than cells, so the only matching row was the outer body row -
+        # and the answer came back as a nav link. The table one level out is tighter and
+        # holds the right cells. This is the same tightest-valid-container rule
+        # `synthesizer.find_target` applies to the accessibility tree; the two resolvers
+        # disagreeing on one target is what a recorded descriptor cannot survive.
         for container in CONTAINER_ROLES:
             scoped = self._tightest(container, target)
-            if scoped is not None:
-                return scoped.nth(target.nth)
+            if scoped is not None and (best is None or scoped[1] < fewest):
+                best, fewest = scoped
+        if best is not None:
+            return best.nth(target.nth)
         raise PlaywrightError(
             f"no {target.role!r} named {target.name!r} in any container near {target.near!r}"
         )
 
-    def _tightest(self, container: str, target: ActionTarget) -> Locator | None:
-        """The smallest container of this role holding `near`, or None if none matches.
+    def _tightest(self, container: str, target: ActionTarget) -> tuple[Locator, int] | None:
+        """The smallest container of this role holding `near`, with how many nodes it holds.
 
         Legacy pages lay out with nested tables, so the page chrome is itself a row that
         contains every anchor on the screen. Taking any matching container would resolve
         every `near` to the same first control - so the winner is the one with the fewest
-        matching descendants, which is the innermost.
+        matching descendants, which is the innermost. The count comes back so the caller can
+        compare across container roles too.
         """
         candidates = self._page.get_by_role(cast(Any, container)).filter(has_text=target.near)
-        best: Locator | None = None
-        fewest = 0
+        best: tuple[Locator, int] | None = None
         for index in range(candidates.count()):
             locator = self._by_role(candidates.nth(index), target)
             found = locator.count()
-            if found and (best is None or found < fewest):
-                best, fewest = locator, found
+            if found and (best is None or found < best[1]):
+                best = (locator, found)
         return best
 
     def _by_role(self, scope: Page | Locator, target: ActionTarget) -> Locator:

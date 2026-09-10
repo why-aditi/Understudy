@@ -11,11 +11,17 @@ from collections.abc import Iterator
 import pytest
 from playwright.sync_api import Page, sync_playwright
 
-from cua.recording.synthesizer import SynthesisError, score, synthesize, synthesize_unverified
+from cua.recording.synthesizer import (
+    SynthesisError,
+    find_target,
+    score,
+    synthesize,
+    synthesize_unverified,
+)
 from cua.replay.resolver import dom_hint_count, matches, walk
 from cua.schema.models import SURFACE_SPECIFIC_SCORE_CAP, Locator
 from cua.session.lock import ControlLock
-from cua.surfaces.base import ActionTarget, AXNode
+from cua.surfaces.base import Action, ActionTarget, AXNode
 from cua.surfaces.web import WebSurface
 
 # A member's sub-account table, as the harness renders it: layout chrome wrapping a data
@@ -513,3 +519,57 @@ def test_a_candidate_the_surface_cannot_act_through_is_skipped_not_misapplied(
     assert [a.strategy for a in skipped] == ["anchor_relative"]
     assert "cannot act through" in (skipped[0].note or "")
     assert can_act_through(resolution.locator), "the walk settled on an unactionable candidate"
+
+
+# ---- the two resolvers must agree ------------------------------------------------------------
+
+# The results screen, whose header cells are `columnheader` rather than `cell`. That detail is
+# what pulled the two resolvers apart: the tightest *row* holding "Name" contains no cells at
+# all, so a resolver that stops at the first container role finds only the outer body row and
+# answers with a nav link.
+RESULTS_HTML = """
+<table><tr><td>
+  <table><tr><td><a href="/a">Member search</a></td></tr>
+         <tr><td><a href="/b">Daily reports</a></td></tr></table>
+  <table>
+    <tr><th>Member</th><th>Name</th><th>Status</th></tr>
+    <tr><td>12345</td><td>Wilhelmina Okonkwo-Bright</td><td>Active</td>
+        <td><a href="/o">Open</a></td></tr>
+  </table>
+</td></tr></table>
+"""
+
+
+@pytest.mark.parametrize(
+    ("role", "near", "nth", "expected"),
+    [
+        # The case that exposed the divergence: no `cell` in the row holding the anchor, so
+        # both resolvers have to widen to the table one level out.
+        ("cell", "Name", 1, "Wilhelmina Okonkwo-Bright"),
+        ("cell", "12345", 1, "Wilhelmina Okonkwo-Bright"),
+        ("cell", "Active", 0, "12345"),
+        ("link", "12345", 0, "Open"),
+    ],
+)
+def test_the_tree_resolver_and_the_live_surface_agree(
+    page: Page, role: str, near: str, nth: int, expected: str
+) -> None:
+    """`find_target` walks the accessibility tree; `WebSurface` drives the live page.
+
+    A recorded descriptor is written by the first and executed by the second, so a target
+    they disagree about produces an artifact describing a control the run never touched.
+    They did disagree, silently, until both were made to take the tightest container that
+    actually holds a node of the target role.
+    """
+    tree = tree_for(page, RESULTS_HTML)
+    target = ActionTarget(role=role, near=near, nth=nth)
+
+    lock = ControlLock("resolver-agreement")
+    lock.acquire("automation", by="test")
+
+    from_tree = find_target(tree, target)
+    from_page = WebSurface(page, lock).act(Action(kind="extract", target=target))
+
+    assert from_page.ok, from_page.error
+    assert (from_page.extracted or "").strip() == expected
+    assert (from_tree.name or "").strip() == expected

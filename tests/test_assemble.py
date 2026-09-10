@@ -22,6 +22,7 @@ SCREEN = AXNode(
         AXNode(role="cell", name="Wilhelmina Okonkwo-Bright"),
     ],
 )
+NAME = "Wilhelmina Okonkwo-Bright"
 
 
 def acted(
@@ -172,3 +173,118 @@ def test_slug_never_returns_empty() -> None:
 
 def test_step_id_falls_back_to_the_action_when_there_is_no_name() -> None:
     assert step_id(3, Action(kind="press_key", value="Enter")) == "03-press-key"
+
+
+# ---- the descriptor has to describe what actually happened ---------------------------------
+
+
+def test_an_extract_whose_descriptor_disagrees_with_what_was_read_is_dropped() -> None:
+    """The synthesizer resolves against the tree; the surface resolved against the live page.
+
+    When those disagreed, the draft recorded a descriptor for a control the run never
+    touched and nothing said so. Only an extract carries ground truth, so only an extract
+    can be checked - and it is.
+    """
+    wrong = ActedStep(
+        tree=SCREEN,
+        action=Action(kind="extract", target=ActionTarget(role="cell", name=NAME)),
+        extracted="Member search",
+    )
+
+    capability = build(acted("click", "link", "Search"), wrong)
+
+    assert [s.action for s in capability.steps] == ["click"], "the mismatched read is not kept"
+
+
+def test_an_extract_that_matches_what_was_read_is_kept() -> None:
+    right = ActedStep(
+        tree=SCREEN,
+        action=Action(kind="extract", target=ActionTarget(role="cell", name=NAME)),
+        extracted=NAME,
+    )
+
+    capability = build(right)
+
+    assert [s.action for s in capability.steps] == ["extract"]
+
+
+def test_whitespace_differences_are_not_a_mismatch() -> None:
+    """`inner_text` and an accessible name differ in spacing, not in meaning."""
+    padded = ActedStep(
+        tree=SCREEN,
+        action=Action(kind="extract", target=ActionTarget(role="cell", name=NAME)),
+        extracted=f"  {NAME}\n ",
+    )
+
+    assert len(build(padded).steps) == 1
+
+
+def test_an_extract_resolving_to_nothing_is_dropped_rather_than_raising() -> None:
+    """A trace can outlive the screen it was taken from; that is a skip, not a crash."""
+    ghost = ActedStep(
+        tree=SCREEN,
+        action=Action(kind="extract", target=ActionTarget(role="cell", name="Absent")),
+        extracted="something",
+    )
+
+    capability = build(acted("click", "link", "Search"), ghost)
+
+    assert [s.action for s in capability.steps] == ["click"]
+
+
+# ---- the model repeating itself ------------------------------------------------------------
+
+
+def test_the_same_read_twice_in_a_row_becomes_one_step() -> None:
+    """A read has no side effect, so two in a row is the model repeating itself."""
+    read = ActedStep(
+        tree=SCREEN,
+        action=Action(kind="extract", target=ActionTarget(role="cell", name=NAME)),
+        extracted=NAME,
+    )
+
+    capability = build(read, read, read, outputs={"member name": NAME})
+
+    assert len(capability.steps) == 1
+    assert [o.source_step_id for o in capability.outputs] == [capability.steps[0].id]
+
+
+def test_two_clicks_in_a_row_are_not_collapsed() -> None:
+    """Clicking the same control twice can be two real things. Only reads are provably not."""
+    click = acted("click", "link", "Search")
+
+    assert len(build(click, click).steps) == 2
+
+
+def test_a_read_repeated_after_something_else_is_kept() -> None:
+    """Only *consecutive* reads collapse: reading, acting, then reading again is a real flow."""
+    read = ActedStep(
+        tree=SCREEN,
+        action=Action(kind="extract", target=ActionTarget(role="cell", name=NAME)),
+        extracted=NAME,
+    )
+
+    capability = build(read, acted("click", "link", "Search"), read)
+
+    assert [s.action for s in capability.steps] == ["extract", "click", "extract"]
+
+
+# ---- the product it was recorded against ---------------------------------------------------
+
+
+def test_the_vendor_product_is_recorded_when_supplied() -> None:
+    capability = assemble(
+        goal="g",
+        run_id="r",
+        model="m",
+        entry_url="http://x/",
+        acted=[acted("click", "link", "Search")],
+        vendor_product="meridian-core",
+    )
+
+    assert capability.app.vendor_product == "meridian-core"
+
+
+def test_the_vendor_product_defaults_to_something_honest() -> None:
+    """Nothing on a page reliably says which product it is, so it is not guessed."""
+    assert build(acted("click", "link", "Search")).app.vendor_product == "unknown"

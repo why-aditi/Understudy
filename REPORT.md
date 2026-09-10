@@ -6,7 +6,7 @@ versioned capability artifact and replays it deterministically with no model in 
 **Citations.** Four evidence files are committed: `desktop-ax-proof.txt`,
 `tenant-overlay-proof.txt`, `catalog-agent-demo.txt`, `redaction-proof.txt`. The rest of
 `evidence/` is gitignored because run output carries captured page state; those runs are named
-by id below and reproduce from the README's commands. 511 tests, 26 files, ruff and mypy strict clean.
+by id below and reproduce from the README's commands. 524 tests, 26 files, ruff and mypy strict clean.
 
 ## Architecture
 
@@ -48,7 +48,18 @@ nothing could be re-resolved.
 `catalog/catalog.py` is the agent-facing edge: saved artifacts become tool declarations, and a
 tool call becomes a replay. It imports no provider, asserted by a subprocess test.
 
-Two bugs in the discovery loop surfaced only when real runs were made to reach the goal again,
+A third resolver bug surfaced when a recorded draft was checked against its own trace. The
+synthesizer resolves a `near` target by walking the accessibility tree; the surface resolved it
+by taking the first container *role* that matched, rather than the tightest container that
+actually holds a node of the target role. On the results screen the header row holding "Name"
+contains `columnheader` nodes and no `cell`, so the surface widened to the outer body row and
+answered with a nav link, while the synthesizer answered with the right table cell. A draft
+therefore recorded a descriptor for a control the run never touched, silently. Both now apply
+the same tightest-valid-container rule, pinned by a test that resolves the same target through
+each and fails if they disagree — and that test was checked against the old behaviour to
+confirm it catches it.
+
+Two further bugs in the discovery loop surfaced only when real runs were made to reach the goal,
 and both had the same shape - something reported success while nothing happened. Model-chosen
 targets matched names by substring, so a click on `"Search"` resolved to the `"Member search"`
 nav link pointing at the same page: `ok=true`, url unchanged, three turns of confusion. And the

@@ -26,6 +26,9 @@ def discover(
     tenant: Annotated[
         str, typer.Option(help="Tenant id the run is recorded against.")
     ] = "tenant-a",
+    vendor_product: Annotated[
+        str, typer.Option(help="Product identifier to record on the draft artifact.")
+    ] = "unknown",
     max_steps: Annotated[int, typer.Option(help="Hard ceiling on loop iterations.")] = 25,
     timeout: Annotated[float, typer.Option(help="Wall-clock budget in seconds.")] = 300.0,
     allow_screenshots: Annotated[
@@ -60,6 +63,7 @@ def discover(
         goal=goal,
         target=target,
         tenant=tenant,
+        vendor_product=vendor_product,
         max_steps=max_steps,
         wall_clock_seconds=timeout,
         screenshots=allow_screenshots,
