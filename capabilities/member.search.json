@@ -3,7 +3,7 @@
   "id": "member.search",
   "name": "Look up a member by id",
   "description": "Search for a member by id and read the name on the results row.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "app": {
     "vendor_product": "meridian-core",
     "product_version": "4.2.1",
@@ -52,6 +52,7 @@
             },
             "stability_score": 0.85,
             "verified_unique_at_record": true,
+            "binds": {},
             "surface_specific": false
           },
           {
@@ -65,6 +66,7 @@
             },
             "stability_score": 0.8,
             "verified_unique_at_record": true,
+            "binds": {},
             "surface_specific": false
           },
           {
@@ -78,6 +80,7 @@
             },
             "stability_score": 0.8,
             "verified_unique_at_record": true,
+            "binds": {},
             "surface_specific": false
           },
           {
@@ -91,6 +94,7 @@
             },
             "stability_score": 0.8,
             "verified_unique_at_record": true,
+            "binds": {},
             "surface_specific": false
           },
           {
@@ -104,6 +108,7 @@
             },
             "stability_score": 0.8,
             "verified_unique_at_record": true,
+            "binds": {},
             "surface_specific": false
           },
           {
@@ -116,6 +121,7 @@
             },
             "stability_score": 0.8,
             "verified_unique_at_record": true,
+            "binds": {},
             "surface_specific": false
           },
           {
@@ -127,6 +133,7 @@
             },
             "stability_score": 0.55,
             "verified_unique_at_record": true,
+            "binds": {},
             "surface_specific": false
           }
         ]
@@ -155,6 +162,7 @@
             },
             "stability_score": 0.85,
             "verified_unique_at_record": true,
+            "binds": {},
             "surface_specific": false
           },
           {
@@ -168,6 +176,7 @@
             },
             "stability_score": 0.8,
             "verified_unique_at_record": true,
+            "binds": {},
             "surface_specific": false
           },
           {
@@ -181,6 +190,7 @@
             },
             "stability_score": 0.8,
             "verified_unique_at_record": true,
+            "binds": {},
             "surface_specific": false
           },
           {
@@ -194,6 +204,7 @@
             },
             "stability_score": 0.8,
             "verified_unique_at_record": true,
+            "binds": {},
             "surface_specific": false
           },
           {
@@ -207,6 +218,7 @@
             },
             "stability_score": 0.8,
             "verified_unique_at_record": true,
+            "binds": {},
             "surface_specific": false
           },
           {
@@ -219,6 +231,7 @@
             },
             "stability_score": 0.8,
             "verified_unique_at_record": true,
+            "binds": {},
             "surface_specific": false
           },
           {
@@ -230,6 +243,7 @@
             },
             "stability_score": 0.55,
             "verified_unique_at_record": true,
+            "binds": {},
             "surface_specific": false
           }
         ]
@@ -248,17 +262,6 @@
         "name": "Wilhelmina Okonkwo-Bright",
         "candidates": [
           {
-            "strategy": "role_name",
-            "params": {
-              "role": "cell",
-              "name": "Wilhelmina Okonkwo-Bright",
-              "match": "exact"
-            },
-            "stability_score": 0.85,
-            "verified_unique_at_record": true,
-            "surface_specific": false
-          },
-          {
             "strategy": "anchor_relative",
             "params": {
               "anchor_text": "12345",
@@ -267,8 +270,11 @@
               "target_role": "cell",
               "index": 0
             },
-            "stability_score": 0.8,
+            "stability_score": 1.0,
             "verified_unique_at_record": true,
+            "binds": {
+              "anchor_text": "member_id"
+            },
             "surface_specific": false
           },
           {
@@ -280,8 +286,11 @@
               "target_role": "cell",
               "index": 1
             },
-            "stability_score": 0.6,
+            "stability_score": 0.9,
             "verified_unique_at_record": true,
+            "binds": {
+              "anchor_text": "member_id"
+            },
             "surface_specific": false
           },
           {
@@ -293,34 +302,11 @@
               "target_role": "cell",
               "index": 1
             },
-            "stability_score": 0.6,
+            "stability_score": 0.9,
             "verified_unique_at_record": true,
-            "surface_specific": false
-          },
-          {
-            "strategy": "anchor_relative",
-            "params": {
-              "anchor_text": "Active",
-              "anchor_role": "cell",
-              "relation": "same_row",
-              "target_role": "cell",
-              "index": 1
+            "binds": {
+              "anchor_text": "member_id"
             },
-            "stability_score": 0.6,
-            "verified_unique_at_record": true,
-            "surface_specific": false
-          },
-          {
-            "strategy": "anchor_relative",
-            "params": {
-              "anchor_text": "Active",
-              "anchor_role": "StaticText",
-              "relation": "same_row",
-              "target_role": "cell",
-              "index": 1
-            },
-            "stability_score": 0.6,
-            "verified_unique_at_record": true,
             "surface_specific": false
           },
           {
@@ -333,6 +319,19 @@
             },
             "stability_score": 0.6,
             "verified_unique_at_record": true,
+            "binds": {},
+            "surface_specific": false
+          },
+          {
+            "strategy": "role_name",
+            "params": {
+              "role": "cell",
+              "name": "Wilhelmina Okonkwo-Bright",
+              "match": "exact"
+            },
+            "stability_score": 0.4,
+            "verified_unique_at_record": true,
+            "binds": {},
             "surface_specific": false
           },
           {
@@ -344,6 +343,35 @@
             },
             "stability_score": 0.35,
             "verified_unique_at_record": true,
+            "binds": {},
+            "surface_specific": false
+          },
+          {
+            "strategy": "anchor_relative",
+            "params": {
+              "anchor_text": "Active",
+              "anchor_role": "cell",
+              "relation": "same_row",
+              "target_role": "cell",
+              "index": 1
+            },
+            "stability_score": 0.15,
+            "verified_unique_at_record": true,
+            "binds": {},
+            "surface_specific": false
+          },
+          {
+            "strategy": "anchor_relative",
+            "params": {
+              "anchor_text": "Active",
+              "anchor_role": "StaticText",
+              "relation": "same_row",
+              "target_role": "cell",
+              "index": 1
+            },
+            "stability_score": 0.15,
+            "verified_unique_at_record": true,
+            "binds": {},
             "surface_specific": false
           }
         ]
@@ -403,6 +431,7 @@
               },
               "stability_score": 0.9,
               "verified_unique_at_record": true,
+              "binds": {},
               "surface_specific": false
             }
           ]

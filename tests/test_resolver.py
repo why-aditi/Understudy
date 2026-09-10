@@ -12,6 +12,7 @@ from cua.replay.conditions import (
     evaluate,
     first_matching,
 )
+from cua.replay.engine import can_act_through
 from cua.replay.resolver import (
     Attempt,
     LocatorExhausted,
@@ -349,3 +350,66 @@ def test_describe_renders_a_condition_for_a_failure_report() -> None:
     condition = Condition(kind="control_present", params={"role": "link", "name": "Open"})
     assert describe(condition) == "control_present(name='Open', role='link')"
     assert describe(condition.model_copy(update={"negate": True})).startswith("not ")
+
+
+def test_a_candidate_the_surface_cannot_express_is_not_counted_as_drift() -> None:
+    """Drift means the recorded primary stopped working. A skip is not that.
+
+    A candidate the surface can never act through was never going to resolve, on any run,
+    against any screen - that is a fact about the surface, not evidence the UI moved.
+    Counting it raised a drift signal on every single replay, which would eventually demote
+    a capability that was working perfectly.
+    """
+    descriptor = ControlDescriptor(
+        role="cell",
+        name="Balance",
+        candidates=[
+            Locator(
+                strategy="anchor_relative",
+                params={"anchor_text": "Member", "relation": "following", "target_role": "cell"},
+                stability_score=0.9,
+                verified_unique_at_record=True,
+            ),
+            Locator(
+                strategy="role_name",
+                params={"role": "cell", "name": "Balance", "match": "exact"},
+                stability_score=0.8,
+                verified_unique_at_record=True,
+            ),
+        ],
+    )
+    tree = node("RootWebArea", None, node("cell", "Member"), node("cell", "Balance"))
+
+    resolution = Resolver(actionable=can_act_through).resolve(tree, descriptor)
+
+    assert resolution.strategy == "role_name"
+    assert [a.skipped for a in resolution.attempts] == [True, False]
+    assert resolution.drift is None, "a skip is not a fallback"
+
+
+def test_a_candidate_that_genuinely_failed_to_resolve_is_still_drift() -> None:
+    """The exemption is for skips only; a primary that matched nothing is real drift."""
+    descriptor = ControlDescriptor(
+        role="cell",
+        name="Balance",
+        candidates=[
+            Locator(
+                strategy="role_name",
+                params={"role": "cell", "name": "Gone", "match": "exact"},
+                stability_score=0.9,
+                verified_unique_at_record=True,
+            ),
+            Locator(
+                strategy="role_name",
+                params={"role": "cell", "name": "Balance", "match": "exact"},
+                stability_score=0.8,
+                verified_unique_at_record=True,
+            ),
+        ],
+    )
+    tree = node("RootWebArea", None, node("cell", "Balance"))
+
+    resolution = Resolver(actionable=can_act_through).resolve(tree, descriptor)
+
+    assert resolution.drift is not None
+    assert "fell back to" in resolution.drift

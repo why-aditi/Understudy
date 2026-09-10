@@ -198,7 +198,7 @@ What is real, and what is not, stated plainly:
 
 `REPORT.md` is the engineering report: what was built, where it is weak, and what was cut.
 
-527 tests, ruff and mypy strict clean, green on every push.
+540 tests, ruff and mypy strict clean, green on every push.
 
 A discovery writes `evidence/discovery-<run_id>/`:
 
@@ -383,7 +383,7 @@ $ cua stability --capability member.search --params '{"member_id": "12345"}' -n 
 
   per control, which candidate actually fired:
     enter-id             primary=role_name        role_name 10x
-    read-name            primary=role_name        role_name 10x
+    read-name            primary=anchor_relative  anchor_relative 10x
     submit-search        primary=role_name        role_name 10x
 ```
 
@@ -398,8 +398,8 @@ resolve through a different candidate are ten passes and no determinism at all.
 Written to `evidence/stability/replay-x10.json`, alongside the drift verdict in
 `drift-x10.json`.
 
-**A finding this command produced on its first real use.** Replaying the same capability for a
-*different* member fails 10/10:
+**A finding this command produced on its first real use, and what it cost to fix.** Replaying
+the same capability for a *different* member used to fail 10/10:
 
 ```
     read-name            primary=role_name        never resolved
@@ -409,158 +409,30 @@ Written to `evidence/stability/replay-x10.json`, alongside the drift verdict in
       every time, so nothing recorded for this control works against the screen as it is now.
 ```
 
-Every candidate the synthesizer recorded for that control is tied to the data that happened
-to be on screen at record time — `role_name` on *the member's own name*, anchors on their id
-and status. The one structural, data-independent candidate is `region_ordinal`, and the web
-surface cannot act through it. So a capability with a `member_id` parameter only works for the
-member it was recorded against. That is measured, not suspected, and it is **the most
-significant known defect in this build**: teaching the synthesizer to prefer structural
-candidates over data-dependent ones is the next thing to fix.
+Every candidate recorded for that control was tied to data that happened to be on screen at
+record time — `role_name` on *the member's own name*, anchors on their id and status. A
+capability with a `member_id` parameter worked for exactly the member it was recorded against.
 
-Drift detection now acts on it rather than only reporting it — the same run ends with a
-verdict to demote `member.search` to draft, which is the correct answer to "this artifact
-does not work against the screen as it is now".
-
----
-
-## An agent calling a capability
-
-The catalog turns a directory of artifacts into a tool list a model can be handed, and turns
-the model's tool call back into a deterministic replay. The division of labour is the entire
-thesis, so it is worth stating exactly:
-
-> the model chooses **which** capability to call, and **what arguments** to pass.
-> the model does not decide a single action **inside** that capability.
-
-Argument types come from the capability's `Parameter` list, result types from its
-`OutputSpec` list, and the result schema describes the whole `ReplayResult` envelope rather
-than just the payload — an agent has to be able to tell "no such member" from "the automation
-broke" without parsing a message.
-
-```bash
-cua catalog          # what an agent would be handed
-cua catalog --json   # the raw tool declarations
-```
-
-Only **approved** capabilities are listed. An agent calling a tool unsupervised *is* the
-unattended case, so it is the same `replayable_unattended` gate that governs unattended
-replay and overlay staleness, not a fourth rule.
-
-The catalog imports no provider. Assembling a specific model's tool format is a caller's job,
-which is why `scripts/agent_demo.py` is thirty lines of adapter and not a dependency.
-
-### The demo
-
-`uv run python scripts/agent_demo.py` against the live harness, with `gpt-oss-120b` on Groq's
-free tier. Neither question names a capability, a parameter, or an id field:
+The candidate that should have worked was already in the chain and already actionable: *the
+cell in the same row as the member id*. It failed only because the anchor was frozen as the
+literal `"12345"` instead of following the parameter. `Locator.binds` fixes that — the anchor
+is substituted per invocation — and synthesis now ranks a bound candidate above one identified
+by record-time content, which for an `extract` is circular anyway: the identifying text is the
+value you are trying to read.
 
 ```
-user  : "Who is member 12345?"
-model : calls member.search({"member_id": "12345"})
-replay: status=success  steps=3
-        outputs={"member_name": "Wilhelmina Okonkwo-Bright"}
-        locators={"enter-id": "role_name", "submit-search": "role_name", "read-name": "role_name"}
-        model calls during replay: 0
-model : "Member 12345 is Wilhelmina Okonkwo-Bright."
-
-user  : "And can you look up member 99999 as well?"
-model : calls member.search({"member_id": "99999"})
-replay: status=business_outcome  steps=2
-        outcome=member_not_found (business)
-        model calls during replay: 0
-model : "Member 99999 was not found."
+$ cua stability --capability member.search --params '{"member_id": "67890"}' -n 10
+  pass rate    10/10 (100%)          # was 0/10
+  read-name    primary=anchor_relative   anchor_relative 10x
+  no drift: 10 run(s), every control resolved through its primary
 ```
 
-**`model calls during replay: 0` is measured, not asserted.** The provider is wrapped in a
-counter and the count is read either side of every tool call, so if a single model call
-happened inside `catalog.call` the demo would print it. Four calls in total across the
-session: two to choose a tool, two to phrase an answer.
-
-The second exchange is the one worth dwelling on. `member_not_found` reaches the model as a
-typed business outcome, and it answers the user's question rather than reporting an error —
-which is what the three-class taxonomy buys, all the way out to the agent.
-
-The demo also exercises the refusals directly, because a model cannot be relied on to produce
-them on demand and they are what stands between a hallucinated tool call and a live browser:
-
-```
-  listed as callable                 2 approved, 0 once approval is withdrawn
-  a capability that does not exist   UnknownTool: no capability named 'member.teleport'
-  a misspelled argument              CatalogError: unknown parameter(s) ['membre_id']
-  a missing required argument        CatalogError: missing required parameter(s) ['member_id']
-  calling an unapproved capability   NotApproved: state=draft ...
-```
-
-Full transcript in `evidence/catalog-agent-demo.txt`.
-
-**What this is not.** One provider, one process, no streaming, no parallel tool calls, and
-the result goes back to the model as user content because `Message` carries no
-`tool_call_id`. Threading that through is the obvious next step and is not interesting.
-
-## One capability, two tenants
-
-tenant-b is the same app under a different config: rebranded, "Member ID" → "Account Holder
-ID", "Savings Balance" → "Deposit Balance", "Sub-accounts" → "Linked accounts", a reordered
-column and a bumped footer version. The capability recorded against tenant-a runs there
-**without being re-recorded**. The only new artifact is an overlay — eight field paths and
-their replacement values.
-
-```bash
-cua replay --capability member.search --params '{"member_id": "12345"}'
-cua replay --capability member.search --params '{"member_id": "12345"}' --tenant tenant-b
-```
-
-Both return `success` with the same output, and all three controls resolve through their
-recorded primary. Resolution is PRD 5.8 exactly: load base → apply overrides by JSON path →
-validate → replay. An override that matches no field is an **error**, never a silent no-op —
-an overlay that looks maintained and changes nothing is the rot this design exists to avoid.
-
-An overlay records `verified_against`, the base version it was last confirmed against. When
-the base moves past it, resolution flags `needs_review` and demotes the resolved capability
-to `draft` — which the existing `replayable_unattended` gate already refuses, so there is one
-gate deciding that question rather than two. It still resolves, so a human can run it
-`--attended` to find out whether it survived; that is the question they actually need
-answered. Unattended, it is refused before a browser is launched, naming the overlay rather
-than only reporting `state=draft`.
-
-## Drift, and what it costs the artifact
-
-`locator_usage` already says which candidate fired and `recoveries` says which steps needed
-handling. Drift detection is the part that acts on them: a control resolving through a
-non-primary candidate in at least half its runs, or a step needing a recovery it has no
-baseline history of needing, is a signal — and enough signal sends an approved capability
-back to `draft`.
-
-The threshold to *mention* a fallback (0.2) and the threshold to *demote* on one (0.5) are
-deliberately different numbers answering different questions.
-
-**What this caught on real data.** A second overlay in the repo moves the entry url to
-tenant-b but deliberately leaves the label alone, so the capability arrives still looking for
-"Member ID":
-
-```
-  runs         10
-  pass rate    10/10 (100%)
-  deterministic True
-
-    enter-id        primary=role_name    anchor_relative 10x   <-- fallback
-
-  drift signals (10 run(s)):
-    - enter-id: resolved through a non-primary candidate in 100% of runs
-      (primary=role_name; anchor_relative 10x).
-  verdict: demote member.search to draft (it may no longer replay unattended)
-  not written back: tenant run, so the overlay needs review, not the base
-```
-
-Ten out of ten passed. A pass rate alone would have called that healthy. The recorded primary
-is dead and the capability is standing entirely on candidate 1 — which is exactly what the
-ranked chain is for, and exactly what hides from a green run. The other two controls anchor
-on text tenant-b did not rename and resolve through their primaries either way, so only the
-control that touches the renamed label drifts.
-
-Demoting the *base* because a tenant's overlay rotted would blame the wrong artifact, so a
-tenant run reports the drift and leaves the base alone. Full evidence in
-`evidence/tenant-overlay-proof.txt`.
+The fix is bounded, and the README should say where it stops: `region_ordinal` and the
+`following`/`within_region` relations are still unreachable from the web surface, so a control
+with **no** usable anchor still has no data-independent candidate. Binding raises the floor
+rather than removing it. `REPORT.md` carries the rest, including the second bug this surfaced —
+a skipped candidate being miscounted as drift, which would have demoted a healthy capability on
+every run.
 
 ## Handing control to a human
 

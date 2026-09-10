@@ -314,10 +314,16 @@ class Resolver:
                 continue
 
             drift = None
-            if index > 0:
+            # Only candidates that were actually attempted count. A candidate skipped
+            # because this surface cannot express it was never going to resolve, on any run,
+            # against any screen - that is a fact about the surface, not evidence the UI
+            # moved. Counting it would raise a drift signal on every single replay and
+            # eventually demote a capability that is working perfectly.
+            missed = [a for a in attempts[:index] if not a.skipped]
+            if missed:
                 # The chain did its job, and that is precisely why it is worth a signal:
                 # the surface has moved far enough that the recorded primary no longer works.
-                tried = ", ".join(a.describe() for a in attempts[:index])
+                tried = ", ".join(a.describe() for a in missed)
                 drift = (
                     f"{descriptor.role}/{descriptor.name!r}: fell back to "
                     f"{candidate.strategy} at rank {index} (tried {tried})"

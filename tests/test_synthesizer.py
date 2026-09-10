@@ -13,6 +13,7 @@ from playwright.sync_api import Page, sync_playwright
 
 from cua.recording.synthesizer import (
     SynthesisError,
+    apply_bindings,
     find_target,
     score,
     synthesize,
@@ -573,3 +574,82 @@ def test_the_tree_resolver_and_the_live_surface_agree(
     assert from_page.ok, from_page.error
     assert (from_page.extracted or "").strip() == expected
     assert (from_tree.name or "").strip() == expected
+
+
+# ---- binding a locator to a parameter --------------------------------------------------------
+
+
+def bound(**params: object) -> Locator:
+    return Locator(
+        strategy="anchor_relative",
+        params=params,
+        stability_score=0.5,
+        verified_unique_at_record=True,
+    )
+
+
+def test_an_anchor_matching_a_parameter_value_becomes_a_bind() -> None:
+    """ "The cell in the same row as 12345" only ever worked for one member.
+
+    Bound, the same candidate means "the row containing whatever the caller passed", which is
+    what makes it structural rather than a recording of one member's row.
+    """
+    candidate = bound(anchor_text="12345", relation="same_row", target_role="cell", index=1)
+
+    [applied] = apply_bindings([candidate], {"12345": "member_id"}, frozenset())
+
+    assert applied.binds == {"anchor_text": "member_id"}
+    assert applied.params["anchor_text"] == "12345", "the record-time literal is kept for review"
+
+
+def test_an_anchor_matching_nothing_supplied_is_left_alone() -> None:
+    candidate = bound(anchor_text="Search results", relation="within_region", target_role="cell")
+
+    [applied] = apply_bindings([candidate], {"12345": "member_id"}, frozenset())
+
+    assert applied.binds == {}
+
+
+def test_binding_lifts_a_candidate_above_one_tied_to_recorded_data() -> None:
+    """The ranking has to change too, or the bound candidate never gets tried."""
+    anchored = bound(anchor_text="12345", relation="same_row", target_role="cell", index=1)
+    by_content = Locator(
+        strategy="role_name",
+        params={"role": "cell", "name": "Wilhelmina Okonkwo-Bright", "match": "exact"},
+        stability_score=0.85,
+        verified_unique_at_record=True,
+    )
+
+    ranked = apply_bindings(
+        [anchored, by_content], {"12345": "member_id"}, frozenset({"Wilhelmina Okonkwo-Bright"})
+    )
+
+    assert ranked[0].stability_score > ranked[1].stability_score
+
+
+def test_a_candidate_identified_by_the_value_being_read_is_scored_down() -> None:
+    """You would have to know the answer to find the control that gives you the answer."""
+    circular = Locator(
+        strategy="role_name",
+        params={"role": "cell", "name": "Wilhelmina Okonkwo-Bright", "match": "exact"},
+        stability_score=0.0,
+        verified_unique_at_record=True,
+    )
+
+    plain = score(circular)
+    penalised = score(circular, frozenset({"Wilhelmina Okonkwo-Bright"}))
+
+    assert penalised < plain
+
+
+def test_a_sensitive_parameter_leaves_no_literal_in_the_artifact() -> None:
+    """Binding must not become a new way for a declared-sensitive value to reach disk."""
+    candidate = bound(anchor_text="QX7-4412", relation="same_row", target_role="cell")
+
+    [applied] = apply_bindings(
+        [candidate], {"QX7-4412": "code"}, frozenset(), sensitive=frozenset({"code"})
+    )
+
+    assert applied.binds == {"anchor_text": "code"}
+    assert applied.params["anchor_text"] == ""
+    assert "QX7-4412" not in applied.model_dump_json()

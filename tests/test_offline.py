@@ -218,7 +218,9 @@ def test_the_committed_fixture_replays_offline() -> None:
     assert payload["locator_usage"] == {
         "enter-id": "role_name",
         "submit-search": "role_name",
-        "read-name": "role_name",
+        # The name cell resolves through an anchor bound to member_id, not through a
+        # role_name on the member's own name - which only ever worked for one member.
+        "read-name": "anchor_relative",
     }
 
 

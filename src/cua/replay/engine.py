@@ -134,6 +134,36 @@ def can_act_through(locator: Locator) -> bool:
     return True
 
 
+def bind_locator(locator: Locator, params: dict[str, Any]) -> Locator:
+    """Swap a locator's bound params for the caller's values.
+
+    An anchor is the strongest thing a legacy screen offers - "the cell in the same row as
+    the member id" survives restyling, reordering and renaming. But the anchor text recorded
+    at record time is one particular member's id, so a candidate that looks structural works
+    for exactly one input and fails for every other. Binding is what makes it general.
+
+    A bound parameter the caller did not supply leaves the recorded literal in place: an
+    optional parameter is allowed to be absent, and falling back to what was seen is better
+    than resolving against the string "None".
+    """
+    if not locator.binds:
+        return locator
+    bound = dict(locator.params)
+    for key, parameter in locator.binds.items():
+        if parameter in params:
+            bound[key] = str(params[parameter])
+    return locator.model_copy(update={"params": bound})
+
+
+def bind_descriptor(descriptor: ControlDescriptor, params: dict[str, Any]) -> ControlDescriptor:
+    """Every candidate in a chain, bound to this invocation's parameters."""
+    if not any(candidate.binds for candidate in descriptor.candidates):
+        return descriptor
+    return descriptor.model_copy(
+        update={"candidates": [bind_locator(c, params) for c in descriptor.candidates]}
+    )
+
+
 def to_action_target(locator: Locator, descriptor: ControlDescriptor) -> ActionTarget:
     """Express the candidate that fired in the vocabulary a surface understands.
 
@@ -283,7 +313,7 @@ class ReplayEngine:
             observation = self.surface.observe()
 
             try:
-                target = self._resolve(step, observation, state)
+                target = self._resolve(step, observation, params, state)
             except LocatorExhausted as exhausted:
                 # A control that has vanished is often a screen the capability already knows
                 # about: a permission panel, a session timeout, an interstitial. Reporting
@@ -436,19 +466,22 @@ class ReplayEngine:
         return None
 
     def _resolve(
-        self, step: Step, observation: Observation, state: _RunState
+        self, step: Step, observation: Observation, params: dict[str, Any], state: _RunState
     ) -> ActionTarget | None:
         if step.target is None:
             return None
         if observation.tree is None:
             raise LocatorExhausted(step.target, [Attempt("<no tree>", 0)])
 
-        resolution: Resolution = self.resolver.resolve(observation.tree, step.target)
+        # Bound before resolving, so both the tree matcher and the surface see this call's
+        # values rather than the ones that happened to be on screen when it was recorded.
+        target = bind_descriptor(step.target, params)
+        resolution: Resolution = self.resolver.resolve(observation.tree, target)
         state.locator_usage[step.id] = resolution.strategy
         state.attempts[step.id] = [attempt.strategy for attempt in resolution.attempts]
         if resolution.drift:
             state.drift.append(resolution.drift)
-        return to_action_target(resolution.locator, step.target)
+        return to_action_target(resolution.locator, target)
 
     def _act(
         self,

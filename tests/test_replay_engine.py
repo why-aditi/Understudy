@@ -14,6 +14,8 @@ from cua.replay.engine import (
     ParameterError,
     ReplayEngine,
     ReplayError,
+    bind_descriptor,
+    bind_locator,
     can_act_through,
     load_capability,
     to_action_target,
@@ -702,3 +704,69 @@ def test_loading_by_id_still_reads_the_capability_directory(tmp_path: Path) -> N
 def test_a_missing_path_names_the_path_rather_than_a_directory_lookup(tmp_path: Path) -> None:
     with pytest.raises(ReplayError, match="no-such-run"):
         load_capability(str(tmp_path / "no-such-run" / "capability.json"))
+
+
+# ---- binding a locator to this invocation's parameters ---------------------------------------
+
+
+def anchored_on(value: str, **binds: str) -> Locator:
+    return Locator(
+        strategy="anchor_relative",
+        params={"anchor_text": value, "relation": "same_row", "target_role": "cell", "index": 1},
+        stability_score=0.9,
+        verified_unique_at_record=True,
+        binds=binds,
+    )
+
+
+def test_a_bound_param_takes_the_callers_value() -> None:
+    """The recorded literal is one member's id; the caller's is the one that matters."""
+    locator = anchored_on("12345", anchor_text="member_id")
+
+    assert bind_locator(locator, {"member_id": "67890"}).params["anchor_text"] == "67890"
+
+
+def test_an_unbound_locator_is_returned_untouched() -> None:
+    locator = anchored_on("12345")
+
+    assert bind_locator(locator, {"member_id": "67890"}) is locator
+
+
+def test_a_bound_param_the_caller_omitted_keeps_the_recorded_literal() -> None:
+    """An optional parameter may be absent; resolving against "None" would be worse."""
+    locator = anchored_on("12345", anchor_text="member_id")
+
+    assert bind_locator(locator, {}).params["anchor_text"] == "12345"
+
+
+def test_binding_a_descriptor_binds_every_candidate() -> None:
+    descriptor = ControlDescriptor(
+        role="cell",
+        name="Wilhelmina Okonkwo-Bright",
+        candidates=[anchored_on("12345", anchor_text="member_id"), anchored_on("12345")],
+    )
+
+    bound = bind_descriptor(descriptor, {"member_id": "67890"})
+
+    assert [c.params["anchor_text"] for c in bound.candidates] == ["67890", "12345"]
+
+
+def test_binding_does_not_mutate_the_artifact() -> None:
+    """A capability is loaded once and replayed many times; binding is per invocation."""
+    descriptor = ControlDescriptor(
+        role="cell", name="x", candidates=[anchored_on("12345", anchor_text="member_id")]
+    )
+
+    bind_descriptor(descriptor, {"member_id": "67890"})
+
+    assert descriptor.candidates[0].params["anchor_text"] == "12345"
+
+
+def test_the_committed_capability_binds_its_name_cell_to_the_member_id() -> None:
+    """The fix for the defect the report named: it replayed for one member and no other."""
+    capability = load_capability("member.search", REPO / "capabilities")
+    read_name = next(s for s in capability.steps if s.id == "read-name")
+
+    assert read_name.target is not None
+    primary = read_name.target.primary
+    assert primary.binds == {"anchor_text": "member_id"}, "the primary must not be data-bound"

@@ -1,9 +1,9 @@
 {
   "capability_id": "member.search",
-  "capability_version": "1.0.0",
+  "capability_version": "1.1.0",
   "tenant_id": "tenant-a",
   "runs": 10,
-  "assessed_at": "2026-09-10T16:42:36.992437Z",
+  "assessed_at": "2026-09-10T18:47:44.371859Z",
   "signals": [],
   "fallback_controls": {},
   "new_recoveries": {},

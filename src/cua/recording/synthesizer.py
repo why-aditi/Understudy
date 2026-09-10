@@ -10,6 +10,7 @@ surviving candidate resolved to exactly one node.
 """
 
 import logging
+from collections.abc import Container, Mapping
 from dataclasses import dataclass
 
 from playwright.sync_api import Page
@@ -37,6 +38,13 @@ ANCHORED_TO_LABEL = 0.25
 SPECIFIC_ROLE = 0.15
 INDEX_DEPENDENT = -0.20
 GENERATED_ID_DEPENDENT = -0.40
+# A candidate anchored on a caller-supplied value is structural once it is bound: the
+# anchor moves with the input instead of pinning the locator to one member's row.
+BOUND_TO_PARAMETER = 0.30
+# A candidate that identifies a control by content that varied at record time works for
+# exactly the run it was recorded on. Worst of all for an extract, where the identifying
+# text *is* the value being read: you would have to know the answer to find it.
+TIED_TO_RECORDED_DATA = -0.45
 
 # Roles that identify one kind of control, as opposed to a container or a blob of text.
 SPECIFIC_ROLES = frozenset(
@@ -73,8 +81,22 @@ class Anchor:
     role: str
 
 
-def score(locator: Locator) -> float:
-    """The PRD 5.6 heuristic, clamped to 0-1 and capped for surface-specific candidates."""
+IDENTIFYING_KEYS = ("name", "text", "anchor_text", "region")
+
+
+def identifying_values(locator: Locator) -> list[str]:
+    """The strings this candidate uses to say *which* control it means."""
+    return [str(locator.params[k]) for k in IDENTIFYING_KEYS if locator.params.get(k)]
+
+
+def score(locator: Locator, volatile: Container[str] = frozenset()) -> float:
+    """The PRD 5.6 heuristic, clamped to 0-1 and capped for surface-specific candidates.
+
+    `volatile` holds values that were record-time content rather than structure - the row
+    that happened to be on screen. A candidate identified by one of those is scored down
+    hard, because it cannot work for any other input, and a bound candidate is scored up,
+    because binding is exactly what turns per-call data into structure.
+    """
     value = BASE_SCORE
     if locator.params.get("name") or locator.params.get("text"):
         value += HAS_ACCESSIBLE_NAME
@@ -87,6 +109,11 @@ def score(locator: Locator) -> float:
         value += INDEX_DEPENDENT
     if depends_on_generated_id(locator):
         value += GENERATED_ID_DEPENDENT
+    if locator.binds:
+        value += BOUND_TO_PARAMETER
+    unbound = {k for k in IDENTIFYING_KEYS if k not in locator.binds}
+    if any(str(locator.params[k]) in volatile for k in unbound if locator.params.get(k)):
+        value += TIED_TO_RECORDED_DATA
 
     value = max(0.0, min(1.0, value))
     if locator.strategy == "dom_hint":
@@ -269,12 +296,51 @@ def verify(tree: AXNode, node: AXNode, drafts: list[Locator], page: Page | None)
     return kept
 
 
+def apply_bindings(
+    candidates: list[Locator],
+    bindings: Mapping[str, str],
+    volatile: Container[str],
+    sensitive: Container[str] = frozenset(),
+) -> list[Locator]:
+    """Attach parameter binds, then rescore, so ranking reflects what each candidate needs.
+
+    `bindings` maps a value seen at record time to the parameter that supplied it. Any
+    identifying param equal to one of those values becomes a bind: the candidate stops
+    meaning "the row containing 12345" and starts meaning "the row containing whatever the
+    caller passed".
+
+    A bind normally keeps the record-time literal in `params`, which is useful when reviewing
+    the artifact. For a *sensitive* parameter that literal is the secret itself, so it is
+    blanked: binding must not become a new way for a declared-sensitive value to reach disk.
+    The bind still says which parameter fills it at invocation.
+    """
+    out: list[Locator] = []
+    for candidate in candidates:
+        binds = {
+            key: bindings[str(candidate.params[key])]
+            for key in IDENTIFYING_KEYS
+            if candidate.params.get(key) and str(candidate.params[key]) in bindings
+        }
+        bound = candidate
+        if binds:
+            params = dict(candidate.params)
+            for key, parameter in binds.items():
+                if parameter in sensitive:
+                    params[key] = ""
+            bound = candidate.model_copy(update={"binds": binds, "params": params})
+        out.append(bound.model_copy(update={"stability_score": score(bound, volatile)}))
+    return out
+
+
 def synthesize(
     tree: AXNode,
     target: ActionTarget,
     *,
     page: Page | None = None,
     dom_hint: str | None = None,
+    bindings: Mapping[str, str] | None = None,
+    volatile: Container[str] = frozenset(),
+    sensitive: Container[str] = frozenset(),
 ) -> ControlDescriptor:
     """Ranked, verified locator candidates for one acted-on control.
 
@@ -287,7 +353,7 @@ def synthesize(
     if dom_hint:
         drafts.append(_locator("dom_hint", css=dom_hint))
 
-    kept = verify(tree, node, drafts, page)
+    kept = apply_bindings(verify(tree, node, drafts, page), bindings or {}, volatile, sensitive)
     _log.info(
         "locators_synthesized",
         extra={
@@ -297,6 +363,7 @@ def synthesize(
             "proposed": len(drafts),
             "verified": len(kept),
             "strategies": [c.strategy for c in kept],
+            "bound": [c.strategy for c in kept if c.binds],
         },
     )
     if not kept:

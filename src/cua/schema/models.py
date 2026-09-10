@@ -82,6 +82,17 @@ class Locator(BaseModel):
             "without proof and should not be trusted as a primary."
         )
     )
+    binds: dict[str, str] = Field(
+        default_factory=dict,
+        description=(
+            "Params whose value comes from a capability parameter at invocation, as "
+            "{param_key: parameter_name}. A locator anchored on data that varies per call - "
+            "'the cell in the same row as the member id' - is structural, but only if the "
+            "anchor is the caller's id rather than the one seen at record time. Without "
+            "this the candidate silently works for exactly one input. The literal kept in "
+            "`params` is what was seen when it was recorded, and is overwritten per call."
+        ),
+    )
     surface_specific: bool = Field(
         default=False,
         description=(

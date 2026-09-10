@@ -1,9 +1,9 @@
 {
   "capability_id": "member.search",
-  "capability_version": "1.0.0",
+  "capability_version": "1.1.0",
   "runs": 10,
   "passes": 10,
-  "measured_at": "2026-09-10T16:42:36.911593Z",
+  "measured_at": "2026-09-10T18:47:44.294990Z",
   "statuses": {
     "success": 10
   },
@@ -18,9 +18,9 @@
     },
     {
       "step_id": "read-name",
-      "primary_strategy": "role_name",
+      "primary_strategy": "anchor_relative",
       "fired": {
-        "role_name": 10
+        "anchor_relative": 10
       },
       "resolved_runs": 10
     },
@@ -37,15 +37,15 @@
   "drift_signals": [],
   "durations_ms": [
     237,
-    183,
-    190,
-    153,
-    145,
-    226,
-    200,
-    192,
-    169,
-    157
+    181,
+    171,
+    151,
+    146,
+    137,
+    151,
+    146,
+    188,
+    159
   ],
   "failures": [],
   "findings": [

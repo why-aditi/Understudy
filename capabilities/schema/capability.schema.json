@@ -217,6 +217,14 @@
           "title": "Verified Unique At Record",
           "type": "boolean"
         },
+        "binds": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Params whose value comes from a capability parameter at invocation, as {param_key: parameter_name}. A locator anchored on data that varies per call - 'the cell in the same row as the member id' - is structural, but only if the anchor is the caller's id rather than the one seen at record time. Without this the candidate silently works for exactly one input. The literal kept in `params` is what was seen when it was recorded, and is overwritten per call.",
+          "title": "Binds",
+          "type": "object"
+        },
         "surface_specific": {
           "default": false,
           "description": "Whether this candidate only works on the surface it was recorded against. True for dom_hint and nothing else. A non-web resolver skips these entirely, which is what keeps the artifact portable (C3).",

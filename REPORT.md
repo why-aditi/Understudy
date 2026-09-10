@@ -7,7 +7,7 @@ versioned capability artifact and replays it deterministically with no model in 
 `evidence/`: one discovery run with the accessibility trees it reasoned over and the artifact
 it emitted, one replay per outcome class, and four standalone proofs — `evidence/README.md`
 says what each shows. Other run ids appear where a claim came from a run that is not committed;
-those reproduce from the README's commands. 527 tests, 26 files, ruff and mypy strict clean.
+those reproduce from the README's commands. 540 tests, 26 files, ruff and mypy strict clean.
 
 ---
 
@@ -124,13 +124,43 @@ candidate in ≥50% of runs, or a step needing a recovery it has no baseline his
 demotes an approved capability to `draft`, which the existing `replayable_unattended` gate refuses.
 Withheld below three runs, because one fallback is a flake.
 
-**The most significant known defect.** `member.search`, recorded against member 12345, fails **10
-of 10** replays for member 67890 — `read-name` never resolves. Every candidate recorded for that
-control is tied to data that happened to be on screen: `role_name` on the member's own name,
-anchors on their id and status. The one data-independent candidate is `region_ordinal`, which the
-web surface cannot act through. A capability with a `member_id` parameter therefore only works for
-the member it was recorded against. Reproduce with `cua stability --capability member.search
---params '{"member_id": "67890"}' -n 10`.
+**The defect this build's headline finding named, and its fix.** `member.search` v1.0.0,
+recorded against member 12345, failed **10 of 10** replays for member 67890: `read-name` never
+resolved. Every candidate for that control was tied to data that happened to be on screen —
+`role_name` on the member's own name, anchors on their id and status — so a capability with a
+`member_id` parameter worked for exactly one member.
+
+The candidate that should have worked was already there and already actionable: *the cell in the
+same row as the member id*. It failed only because the anchor was frozen as the literal `"12345"`
+rather than tracking the parameter. `Locator.binds` fixes that — `{param_key: parameter_name}`,
+substituted at invocation, so the anchor becomes whatever the caller passed. The record-time
+literal stays in `params` for review, except for a sensitive parameter, where it is blanked:
+binding must not become a new route for a declared-sensitive value to reach disk.
+
+Ranking had to change with it, or the bound candidate would never be tried. Synthesis now scores
+a bound candidate **up** (binding is what turns per-call data into structure) and one identified
+by record-time content **down** — hardest for an `extract`, where the identifying text *is* the
+value being read and you would have to know the answer to find it.
+
+The result, on the same command that produced the finding:
+
+```
+$ cua stability --capability member.search --params '{"member_id": "67890"}' -n 10
+  pass rate    10/10 (100%)          # was 0/10
+  read-name    primary=anchor_relative   anchor_relative 10x
+  no drift: 10 run(s), every control resolved through its primary
+```
+
+Fixing it surfaced a second bug worth naming. The new primary sits above a `following` anchor the
+web surface cannot express, and a skipped candidate was being counted as a fallback — so every
+replay raised a drift signal, and drift detection would have demoted a capability that was working
+perfectly. A candidate the surface can never act through was never going to resolve on any run;
+that is a fact about the surface, not evidence the UI moved. Only genuinely attempted candidates
+count now.
+
+What this does **not** fix: `region_ordinal` and the `following`/`within_region` relations are
+still unreachable from the web surface, so a control with no usable anchor still has no
+data-independent option. Binding raises the floor; it does not remove it.
 
 ## Heterogeneity & multi-tenant
 
@@ -246,10 +276,11 @@ production system. On a paid tier with a zero-retention agreement the constraint
 
 **What I would build next, in order.**
 
-1. **Structural-first locator synthesis.** The 10/10 failure above is the highest-value fix in the
-   repo: rank data-independent candidates ahead of ones matching record-time content, and teach the
-   web surface to act through `region_ordinal` so the structural candidate is usable rather than
-   merely present. Without this, parameterised capabilities are a fiction.
+1. **Teach the web surface the remaining relations.** Binding fixed the case where a usable
+   anchor existed; `region_ordinal` and the `following`/`within_region` relations are still
+   unreachable, so a control with no anchor still has no data-independent candidate. That needs
+   `ActionTarget` to express "the nth node in the section under this heading", which containment
+   cannot approximate without lying about what it found.
 2. **Feed measured usage back into ranking.** `cua stability` already produces the histogram that
    contradicts the heuristic score; persisting it and re-ranking on it closes the loop.
 3. **Outcome detection worth trusting.** The model proposed seven detectors for

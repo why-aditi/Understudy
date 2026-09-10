@@ -1,8 +1,8 @@
 {
   "base_capability_id": "member.search",
-  "base_version": "1.0.0",
+  "base_version": "1.1.0",
   "tenant_id": "tenant-b-address-only",
-  "verified_against": "1.0.0",
+  "verified_against": "1.1.0",
   "overrides": [
     {
       "step_id": "<capability>",
