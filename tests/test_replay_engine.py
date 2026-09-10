@@ -188,14 +188,35 @@ def engine(tmp_path: Path) -> ReplayEngine:
     )
 
 
+class SteppedClock:
+    """A clock that only moves when something sleeps.
+
+    The engine waits for a checkpoint to come true, bounded by the step's timeout. With a
+    real clock and a no-op sleep those waits spin for the full ten seconds of wall time,
+    which turned three tests into a forty-second suite. Advancing on sleep keeps the waiting
+    behaviour under test while costing nothing.
+    """
+
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def monotonic(self) -> float:
+        return self.now
+
+    def sleep(self, seconds: float) -> None:
+        self.now += seconds
+
+
 def build(surface: FakeSurface, tmp_path: Path) -> tuple[ReplayEngine, RunLogger]:
     logger = RunLogger("replay-test", root=tmp_path)
+    clock = SteppedClock()
     return (
         ReplayEngine(
             surface=surface,
             policy=PolicyEngine(load_policy(REPO / "policy.yaml")),
             logger=logger,
-            sleep=lambda _: None,
+            monotonic=clock.monotonic,
+            sleep=clock.sleep,
         ),
         logger,
     )

@@ -3,7 +3,7 @@
   "capability_version": "1.1.0",
   "runs": 10,
   "passes": 10,
-  "measured_at": "2026-09-10T18:47:44.294990Z",
+  "measured_at": "2026-09-10T20:51:44.462560Z",
   "statuses": {
     "success": 10
   },
@@ -36,16 +36,16 @@
   "recoveries": {},
   "drift_signals": [],
   "durations_ms": [
-    237,
-    181,
-    171,
-    151,
-    146,
-    137,
-    151,
-    146,
-    188,
-    159
+    378,
+    245,
+    253,
+    330,
+    343,
+    711,
+    607,
+    508,
+    561,
+    504
   ],
   "failures": [],
   "findings": [

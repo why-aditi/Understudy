@@ -3,7 +3,7 @@
   "capability_version": "1.1.0",
   "tenant_id": "tenant-a",
   "runs": 10,
-  "assessed_at": "2026-09-10T18:47:44.371859Z",
+  "assessed_at": "2026-09-10T20:51:45.252622Z",
   "signals": [],
   "fallback_controls": {},
   "new_recoveries": {},

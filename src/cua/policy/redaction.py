@@ -4,6 +4,8 @@ import logging
 import re
 from collections.abc import Mapping
 
+from pydantic import BaseModel
+
 # Declared values shorter than this are not redacted: blanking "1" would shred every record.
 MIN_SENSITIVE_LENGTH = 4
 
@@ -59,9 +61,22 @@ class RedactionFilter(logging.Filter):
                 setattr(record, key, self._scrub(value))
         return True
 
+    def scrub_text(self, text: str) -> str:
+        """Apply this run's declared values to a blob of text.
+
+        Evidence artifacts are written as bytes and never pass through a log record, so the
+        filter has to be reachable directly or they escape it entirely.
+        """
+        return redact(text, self._sensitive)
+
     def _scrub(self, value: object) -> object:
         if isinstance(value, str):
             return redact(value, self._sensitive)
+        if isinstance(value, BaseModel):
+            # A model reaches a record whole - `logger.event("replay_end", result=result)` -
+            # and walking only dicts and lists let every string inside one straight through.
+            # `FailureDetail.observed` is where a url carrying a query-string secret lands.
+            return value.model_validate(self._scrub(value.model_dump(mode="json")))
         if isinstance(value, Mapping):
             return {k: self._scrub(v) for k, v in value.items()}
         if isinstance(value, list):

@@ -7,7 +7,7 @@ versioned capability artifact and replays it deterministically with no model in 
 `evidence/`: one discovery run with the accessibility trees it reasoned over and the artifact
 it emitted, one replay per outcome class, and four standalone proofs — `evidence/README.md`
 says what each shows. Other run ids appear where a claim came from a run that is not committed;
-those reproduce from the README's commands. 540 tests, 26 files, ruff and mypy strict clean.
+those reproduce from the README's commands. 546 tests, 26 files, ruff and mypy strict clean.
 
 ---
 
@@ -104,7 +104,11 @@ Replay walks the candidate chain in rank order and records which one fired
 | recoverable | `evidence/replay-recoverable-modal/` | `success`, `drift_signals: ["read-balance: recovered from 'maintenance_notice' (attempt 1 of 2)"]` |
 | hard_failure | `evidence/replay-hard-failure-permission/` | `failure` with candidates tried and an AX snapshot at `failure-read-balance.ax.json` |
 
-A checkpoint that fails with no matching detector is a hard failure, never a silent continue.
+A checkpoint is **waited for**, bounded by the step's timeout, not sampled once. Sampling was a
+race: a submit that navigates leaves the old document in place for a few milliseconds, so the
+checkpoint got read against the screen the step was trying to leave. Measured at 5 passes in 12
+on `member.verify`; 12 in 12 once the wait was added. A checkpoint that fails with no matching
+detector is a hard failure, never a silent continue.
 Screenshots are off unless `--allow-screenshots`; failure evidence is the AX snapshot. Which of
 the three classes a run was is in `result.json`'s `status` rather than the directory name, since
 the class is only known once the run ends.
@@ -242,7 +246,15 @@ missing or malformed policy file is an error, never a permissive default.
   `state="approved"` and `outcomes_reviewed=True`. One property governs three callers — unattended
   replay, overlay staleness, catalog listing — rather than three rules to keep in sync. In
   `evidence/catalog-agent-demo.txt`, withdrawing approval drops the agent's tool list from 2 to 0.
-- **Sensitive values never reach disk**, demonstrated rather than asserted. `member.verify`
+- **Sensitive values never reach disk**, demonstrated rather than asserted - and the
+  demonstration was incomplete until a failing run exposed it. Redaction sat on the log
+  handler, so two paths escaped it: a Pydantic model reaching a log record whole (the whole
+  ReplayResult, whose FailureDetail carries the url that failed), and evidence artifacts,
+  which are written as bytes and never pass through logging at all. Both leaked a
+  query-string secret the moment a capability with a sensitive parameter *failed* - the
+  success path writes neither file. The filter now recurses into models, and text artifacts
+  are scrubbed on the way to disk. Screenshots are left alone: pixels cannot be scrubbed by
+  string replacement, which is why they default to off. `member.verify`
   declares a sensitive `code`, and the harness screen puts that code in a query string on
   purpose so it lands in a logged field. `evidence/redaction-proof.txt`: the run returns
   "Identity verified", so the value really was typed; the literal appears **0 times** across

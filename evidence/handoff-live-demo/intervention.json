@@ -3,7 +3,7 @@
   "reason": "stuck",
   "step_id": "open-savings",
   "message": "The detail screen is a frameset; no candidate resolved.",
-  "requested_at": "2026-09-10T16:54:00.650862Z",
+  "requested_at": "2026-09-10T20:38:55.959838Z",
   "capability_id": "member.savings_balance.read",
   "capability_version": "1.0.0",
   "goal": "Open the member's savings sub-account.",
@@ -13,15 +13,15 @@
   "lock": {
     "session_id": "handoff-live-demo",
     "holder": "automation",
-    "acquired_at": "2026-09-10T16:54:00.598359Z",
+    "acquired_at": "2026-09-10T20:38:55.850894Z",
     "acquired_by": "handoff-live-demo"
   },
-  "resolved_at": "2026-09-10T16:54:01.184063Z",
+  "resolved_at": "2026-09-10T20:38:56.513139Z",
   "resumed_by": "operator",
   "human_actions": [
     {
       "kind": "click",
-      "at": "2026-09-10T16:54:00.767707Z",
+      "at": "2026-09-10T20:38:56.076414Z",
       "frame": "accounts",
       "role": "link",
       "name": "Open",
@@ -30,7 +30,7 @@
     },
     {
       "kind": "navigate",
-      "at": "2026-09-10T16:54:00.780731Z",
+      "at": "2026-09-10T20:38:56.109360Z",
       "frame": "http://127.0.0.1:8099/tenant-a/members/12345/accounts/SAV-88120",
       "role": null,
       "name": null,

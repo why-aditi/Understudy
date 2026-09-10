@@ -12,6 +12,7 @@ from cua.policy.engine import PolicyEngine
 from cua.policy.rules import load_policy
 from cua.replay.engine import ReplayEngine
 from cua.schema.models import Condition, Outcome, Recovery, Step
+from cua.surfaces.base import AXNode, Observation
 from test_replay_engine import (
     REPO,
     URL,
@@ -340,3 +341,85 @@ def test_a_failed_replay_also_leaves_a_result(tmp_path: Path) -> None:
     written = json.loads((logger.directory / "result.json").read_text(encoding="utf-8"))
     assert written["status"] == "failure"
     assert written["failure"]["evidence_paths"] == result.failure.evidence_paths  # type: ignore[union-attr]
+
+
+# ---- a checkpoint is waited for, not sampled once --------------------------------------------
+
+
+class SlowSurface(FakeSurface):
+    """Answers with the old screen for a few observations, then the new one - or never."""
+
+    def __init__(self, arrives_after: int | None) -> None:
+        super().__init__()
+        self.arrives_after = arrives_after
+        self.observations = 0
+
+    def observe(self, *, screenshot: bool = False) -> Observation:
+        self.observations += 1
+        if self.arrives_after is not None and self.observations > self.arrives_after:
+            self.tree = AXNode(role="RootWebArea", name="Verification result")
+        return super().observe(screenshot=screenshot)
+
+
+def submitting(**kwargs: object) -> Step:
+    return Step(
+        id="submit",
+        intent="submit the form",
+        action="click",
+        target=anchor("Savings Balance", "cell"),
+        **kwargs,  # type: ignore[arg-type]
+    )
+
+
+REACHED = Condition(kind="text_present", params={"text": "Verification result"})
+
+
+def test_a_checkpoint_that_becomes_true_a_moment_later_still_passes(tmp_path: Path) -> None:
+    """A submit that navigates leaves the old document in place for a few milliseconds.
+
+    Sampling the checkpoint once immediately after the click reads it against the screen the
+    step was trying to leave. Measured at 5 passes in 12 on a capability whose submit
+    navigates; the same flow with no checkpoint on the acting step never showed it, because
+    the assertion happened to land a step later.
+    """
+    surface = SlowSurface(arrives_after=2)
+    engine, logger = build(surface, tmp_path)
+
+    with logger:
+        result = engine.run(
+            capability(steps=[submitting(checkpoint=REACHED)], outputs=[], parameters=[]), {}
+        )
+
+    assert result.status == "success"
+    assert surface.observations > 1, "it kept looking until the screen caught up"
+
+
+def test_a_checkpoint_that_never_holds_still_fails_after_its_timeout(tmp_path: Path) -> None:
+    """Waiting must not turn a real failure into a hang or a pass."""
+    surface = SlowSurface(arrives_after=None)
+    engine, logger = build(surface, tmp_path)
+
+    with logger:
+        result = engine.run(
+            capability(
+                steps=[submitting(checkpoint=REACHED, timeout_ms=200)], outputs=[], parameters=[]
+            ),
+            {},
+        )
+
+    assert result.status == "failure"
+    assert result.failure is not None
+    assert "checkpoint not met" in result.failure.observed
+
+
+def test_a_step_with_no_checkpoint_observes_once(tmp_path: Path) -> None:
+    """Nothing to wait for, and waiting on nothing would slow every extract down."""
+    surface = SlowSurface(arrives_after=None)
+    engine, logger = build(surface, tmp_path)
+
+    with logger:
+        engine.run(capability(steps=[submitting()], outputs=[], parameters=[]), {})
+
+    # One before acting and one after: `_settle` looks once and returns, because there is
+    # no condition to wait on.
+    assert surface.observations == 2

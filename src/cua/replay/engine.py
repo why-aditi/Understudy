@@ -372,7 +372,7 @@ class ReplayEngine:
             if result.extracted is not None:
                 state.extracted[step.id] = result.extracted
 
-            after = self.surface.observe()
+            after = self._settle(step)
             outcome = first_matching(capability.outcomes, after.tree, after.url, step.id)
 
             if outcome is not None:
@@ -414,6 +414,41 @@ class ReplayEngine:
                     ),
                 )
             return None
+
+    def _settle(self, step: Step) -> Observation:
+        """Observe after acting, waiting for the step's checkpoint to become true.
+
+        A checkpoint is the state the step was supposed to reach, so sampling it once
+        immediately after a click is a race: a submit that navigates leaves the old document
+        in place for a few milliseconds, and the checkpoint is read against the screen the
+        step was trying to leave. Measured at 5 passes in 12 on a capability whose submit
+        navigates - the same flow with no checkpoint on the acting step never showed it,
+        because the assertion happened to land a step later.
+
+        Waiting is bounded by the step's own timeout and costs nothing once the condition
+        holds. A step with no checkpoint observes once, as before: there is nothing to wait
+        for, and waiting on nothing would slow every extract down.
+        """
+        observation = self.surface.observe()
+        if step.checkpoint is None:
+            return observation
+
+        deadline = self._monotonic() + step.timeout_ms / 1000
+        while not evaluate(step.checkpoint, observation.tree, observation.url):
+            if self._monotonic() >= deadline:
+                # Returned rather than raised: the caller decides whether a declared outcome
+                # explains this screen before it is called a failure.
+                self.logger.event(
+                    "checkpoint_timed_out",
+                    step_id=step.id,
+                    checkpoint=describe(step.checkpoint),
+                    waited_ms=step.timeout_ms,
+                    url=observation.url,
+                )
+                return observation
+            self._sleep(0.05)
+            observation = self.surface.observe()
+        return observation
 
     def _handle_outcome(
         self,

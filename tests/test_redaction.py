@@ -121,3 +121,61 @@ def test_a_declared_value_is_scrubbed_out_of_a_url_it_leaked_into() -> None:
     leaked = "http://127.0.0.1:8099/tenant-a/members/12345/verified?code=QX7-4412"
 
     assert redact(leaked, {"code": "QX7-4412"}).endswith("?code=[REDACTED:code]")
+
+
+# ---- the two paths that used to escape the filter entirely ---------------------------------
+
+
+def test_a_declared_value_inside_a_pydantic_model_is_scrubbed() -> None:
+    """A model reaches a log record whole, and every string inside it went straight through.
+
+    `logger.event("replay_end", result=result)` carries a whole ReplayResult, and
+    `FailureDetail.observed` is where a url with a secret in its query string lands. Walking
+    only dicts and lists missed all of it.
+    """
+    from cua.schema.models import FailureDetail
+
+    record = logging.LogRecord("cua", logging.INFO, "x", 1, "m", None, None)
+    record.detail = FailureDetail(
+        step_id="submit",
+        expected="the result screen",
+        observed="checkpoint not met at http://host/verified?code=QX7-4412",
+    )
+
+    RedactionFilter({"code": "QX7-4412"}).filter(record)
+
+    assert "QX7-4412" not in record.detail.observed  # type: ignore[attr-defined]
+    assert "[REDACTED:code]" in record.detail.observed  # type: ignore[attr-defined]
+
+
+def test_a_text_artifact_is_scrubbed_on_its_way_to_disk(tmp_path: Path) -> None:
+    """Failure evidence is written as bytes and never passes through a log record.
+
+    An `Observation.url` can carry a secret in its query string, and the success path writes
+    neither file - so this only ever leaked when a capability with a sensitive parameter
+    failed, which is precisely when the evidence matters.
+    """
+    from cua.evidence.logger import RunLogger
+
+    with RunLogger("redaction-artifact", root=tmp_path) as log:
+        log.declare_sensitive("code", "QX7-4412")
+        snapshot = log.save_artifact(
+            "failure-submit.ax.json",
+            b'{"url": "http://host/verified?code=QX7-4412", "tree": null}',
+        )
+
+    written = snapshot.read_text(encoding="utf-8")
+    assert "QX7-4412" not in written
+    assert "[REDACTED:code]" in written
+
+
+def test_a_screenshot_is_written_untouched(tmp_path: Path) -> None:
+    """Pixels cannot be scrubbed by string replacement, which is why they default to off."""
+    from cua.evidence.logger import RunLogger
+
+    png = b"\x89PNG\r\n\x1a\n" + bytes(range(256))
+    with RunLogger("redaction-png", root=tmp_path) as log:
+        log.declare_sensitive("code", "QX7-4412")
+        path = log.save_artifact("step-01.png", png)
+
+    assert path.read_bytes() == png

@@ -148,9 +148,28 @@ class RunLogger:
 
         path = directory / _safe_filename(name)
 
-        path.write_bytes(data)
+        path.write_bytes(self._redacted(name, data))
 
         return path
+
+    def _redacted(self, name: str, data: bytes) -> bytes:
+        """Scrub a text artifact on its way to disk.
+
+        The redaction filter sits on the log handler, so artifacts written as bytes used to
+        escape it completely: a failure snapshot holds an `Observation.url`, and a url can
+        carry a secret in its query string. Found when a capability with a sensitive
+        parameter failed - the success path never writes either file.
+
+        Screenshots are left alone. They are not text, and pixels cannot be scrubbed by
+        string replacement, which is exactly why they are off by default.
+        """
+        if not name.endswith((".json", ".jsonl", ".txt")):
+            return data
+        try:
+            text = data.decode("utf-8")
+        except UnicodeDecodeError:
+            return data
+        return self.redaction.scrub_text(text).encode("utf-8")
 
     def event(self, name: str, **fields: object) -> None:
         """Write one structured record."""
