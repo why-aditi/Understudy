@@ -3,10 +3,10 @@
 An LLM discovers how to accomplish a goal in a UI. The system records that discovery as a typed,
 versioned capability artifact and replays it deterministically with no model in the decision loop.
 
-**Citations.** Three evidence files are committed: `desktop-ax-proof.txt`,
-`tenant-overlay-proof.txt`, `catalog-agent-demo.txt`. The rest of `evidence/` is gitignored because
-run output carries captured page state; those runs are named by id below and reproduce from the
-README's commands. 511 tests, 26 files, ruff and mypy strict clean.
+**Citations.** Four evidence files are committed: `desktop-ax-proof.txt`,
+`tenant-overlay-proof.txt`, `catalog-agent-demo.txt`, `redaction-proof.txt`. The rest of
+`evidence/` is gitignored because run output carries captured page state; those runs are named
+by id below and reproduce from the README's commands. 511 tests, 26 files, ruff and mypy strict clean.
 
 ## Architecture
 
@@ -122,7 +122,8 @@ the member it was recorded against. Reproduce with `cua stability --capability m
 
 `apps/harness/` is deliberately legacy-shaped: nested table layout, a per-render generated id on
 every element, no test ids, a frameset on the detail screen, submit as an `<a>` with `onclick`, and
-query-param flags injecting `not_found`, `permission`, `timeout`, `modal` and `slow`. The automation
+query-param flags injecting `not_found`, `permission`, `timeout`, `modal` and `slow`, plus one
+screen whose input is genuinely secret so redaction has something to redact. The automation
 gets no privileged hook, debug endpoint or application cooperation. A Dolibarr instance under
 `apps/dolibarr/` was the third-party target; the harness exists because it fails on demand.
 

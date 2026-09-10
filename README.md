@@ -89,7 +89,16 @@ uv run cua stability --capability member.search --params '{"member_id": "12345"}
 
 # record your own offline fixture from a live run
 uv run cua replay --capability member.search --params '{"member_id": "12345"}' --record-fixture
+
+# a capability with a *sensitive* parameter: the run succeeds, the value never lands
+uv run cua replay --capability member.verify --params '{"code": "QX7-4412"}'
+grep -r "QX7-4412" evidence/replay-*/     # nothing; the log holds [REDACTED:code]
 ```
+
+That last pair is worth running together. `"Identity verified"` comes back only for the
+correct code, so the value really was typed — and the harness puts it in a query string on
+purpose, so it lands in a logged field and the filter has to catch it there rather than the
+value simply never being written.
 
 ### 3. With a model (needs a free key)
 
@@ -152,7 +161,7 @@ What is real, and what is not, stated plainly:
 |---|---|
 | `surfaces/` — AX-tree observation, D3 pruning, role+name+`near` acting | **built**, exercised against a live browser |
 | offline replay — recorded fixtures, no browser, no network | **built**, a socket-blocked test proves it |
-| `policy/` — allowlist, risk classification, redaction filter | **built** |
+| `policy/` — allowlist, risk classification, redaction filter | **built**, a run shows a sensitive value not reaching disk |
 | `llm/` — provider protocol, Gemini, Groq, rate limiter | **built**, exercised against a live provider |
 | `discovery/` — the observe/decide/act loop, closed tool schema | **built**, completes a real multi-step goal |
 | `schema/` — the capability artifact and its JSON Schema export | **built** |
@@ -192,8 +201,9 @@ class is only known once the run ends.
 `evidence/` is gitignored, because run output carries captured page state. The runs quoted
 throughout this README are **reproducible from the commands above rather than checked in** — the
 run ids name real directories on the machine that produced them. The exceptions are
-`evidence/desktop-ax-proof.txt`, `evidence/tenant-overlay-proof.txt` and
-`evidence/catalog-agent-demo.txt`, which carry no page state and are committed.
+`evidence/desktop-ax-proof.txt`, `evidence/tenant-overlay-proof.txt`,
+`evidence/catalog-agent-demo.txt` and `evidence/redaction-proof.txt`, which carry no page
+state and are committed.
 
 A clean discovery looks like this:
 
@@ -602,7 +612,8 @@ src/cua/
   escalation/ intervention record, handoff, capture, mocked operator console
   catalog/    discovery, tool-schema generation, typed invocation by name
   evidence/   JSONL logger with redaction
-apps/harness/ fault-injection target app, tenant-a and tenant-b
+apps/harness/ fault-injection target app, tenant-a and tenant-b, and one screen whose
+              input is genuinely secret
 capabilities/ saved artifacts, tenant overlays, and the exported JSON Schema
 fixtures/     recorded tapes for offline replay, committed so a reviewer needs no key
 scripts/      one-shot proofs whose output is the deliverable, not library code
