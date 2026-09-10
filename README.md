@@ -79,6 +79,12 @@ action, the policy verdict, the action result and elapsed time. A replay writes
 `evidence/replay-<run_id>/` with both `run.jsonl` and `result.json`: how it went, and what
 the caller was told.
 
+`evidence/` is gitignored, because run output carries captured page state. So the runs quoted
+throughout this README are **reproducible from the commands above rather than checked in** —
+the run ids name real directories on the machine they were produced on, not paths in this
+repo. The single exception is `evidence/desktop-ax-proof.txt`, which contains no application
+state and is committed.
+
 A clean discovery looks like this:
 
 ```
