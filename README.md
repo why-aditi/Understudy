@@ -23,12 +23,18 @@ This is an in-progress take-home build. What is real, and what is not, stated pl
 | `llm/` — provider protocol, Gemini, Groq, rate limiter | **built, exercised against a live provider** |
 | `discovery/` — the observe/decide/act loop, closed tool schema | **built, completes a real multi-step goal** |
 | `evidence/` — JSONL run log, screenshot artifacts | **built** |
+| `schema/` — the capability artifact and its JSON Schema export | **built** |
+| `recording/synthesizer` — ranked, verified locator candidates | **built, verified against real markup** |
+| `replay/resolver` — candidate matching across all five strategies | **built** |
 | `session/` — registry holding long-lived browsers | **minimal**: in-process only |
-| `schema/`, `recording/`, `replay/`, `escalation/`, `catalog/` | **not yet implemented** — module stubs |
+| `replay/engine`, `recording/outcomes`, `escalation/`, `catalog/` | **not yet implemented** — module stubs |
 
-So: discovery works end to end and produces evidence. The artifact it should emit, and the
-deterministic replay of that artifact, are the next milestones. `cua replay`, `review`,
-`stability` and `operator` raise `NotImplementedError` today.
+So: discovery works end to end and produces evidence, the artifact it should emit is defined
+and enforced, and a control can be described by a ranked chain of verified locators. What is
+missing is the executor that walks that chain with no model in the loop. `cua replay`,
+`review`, `stability` and `operator` raise `NotImplementedError` today.
+
+205 tests, ruff and mypy strict clean, green on every push.
 
 ---
 
@@ -66,7 +72,10 @@ step 5: extract cell            near="Current balance" nth=1  -> "4,182.55"
 step 6: finish  outputs={"Current balance": "4,182.55"}
 ```
 
-Six steps, six model calls, no wrong turns.
+Six steps, six model calls, no wrong turns. That is the real trace from
+`evidence/discovery-20260910T110803-8bd5f2/`, reproduced verbatim; the harness has since
+renamed two of those labels (`Member ID`, `Savings Balance`), which is exactly the drift a
+tenant overlay has to absorb.
 
 ---
 
@@ -90,6 +99,34 @@ screen, and query-param flags that inject `not_found`, `permission`, `timeout`, 
 
 ---
 
+## The artifact
+
+A capability is a typed, versioned recording: an entry point, declared parameters and
+outputs, ordered steps, and the outcomes it knows how to recognise. Its JSON Schema is
+exported to `capabilities/schema/` and is the contract an agent reads to decide whether and
+how to call it, so every property in it carries a description and a test fails the build on
+any that does not.
+
+Four things the type system enforces rather than the documentation asking for:
+
+- **A control is a ranked chain of locators, never one locator.** Candidates are sorted on
+  construction, so `candidates[0]` is the primary by definition and a non-primary firing
+  during replay is a well-defined drift signal.
+- **`surface_specific` is derived, not accepted.** A `dom_hint` is forced surface-specific and
+  capped at 0.3, so a css selector cannot present itself as portable or outrank an anchor.
+- **`verified_unique_at_record` is a fact.** Every candidate is re-resolved against the live
+  page and discarded unless it matches exactly one node — and that node. Two matches is worse
+  than none, because two matches picks the wrong one silently.
+- **A sensitive parameter cannot carry an example.** An example of a real account number is a
+  real account number, so the model nulls it rather than trusting each call site.
+
+Locator candidates span all five strategies, and the three `anchor_relative` relations
+(`same_row`, `following`, `within_region`) resolve **structurally against the accessibility
+tree** rather than the DOM. That is what makes the params portable: the same locator resolves
+against a desktop AX tree with the same code.
+
+---
+
 ## Four architectural constraints
 
 Violating any of these is a bug, not a style choice. Two are enforced by tests that read the
@@ -101,8 +138,8 @@ source, not by convention.
   surface. *Enforced:* an AST test fails on any `Surface.act()` call whose function never
   obtained a `PolicyVerdict`.
 - **C3 — no surface-specific locator is ever a primary strategy.** Role, name and containment
-  lead; DOM hints would be a terminal fallback flagged `surface_specific`. *Enforced:* the
-  selector-API test above.
+  lead; a DOM hint is a terminal fallback. *Enforced twice:* the selector-API test above, and
+  the schema itself, which derives `surface_specific` from the strategy and caps its score.
 - **C4 — replay makes zero model calls.** `ReplayEngine` will take no `LLMClient` in its
   dependency graph. To be enforced structurally when replay lands.
 
@@ -154,14 +191,14 @@ src/cua/
   policy/     PolicyEngine chokepoint, risk rules, redaction filter
   llm/        LLMClient protocol, Gemini, Groq, Ollama, rate limiter
   discovery/  the loop, the closed tool schema, prompts
-  recording/  LocatorSynthesizer, outcome proposal          (stub)
-  schema/     Pydantic capability models, JSON Schema export (stub)
-  replay/     deterministic executor, resolver, conditions   (stub)
+  recording/  LocatorSynthesizer; outcome proposal          (outcomes: stub)
+  schema/     Pydantic capability models, JSON Schema export
+  replay/     candidate resolver; executor, conditions       (engine: stub)
   escalation/ intervention, handoff, operator console        (stub)
   catalog/    capability catalog                             (stub)
   evidence/   JSONL logger with redaction
 apps/harness/ fault-injection target app, tenant-a and tenant-b
-capabilities/ saved artifacts and overlays
+capabilities/ saved artifacts, overlays, and the exported JSON Schema
 evidence/     run output (gitignored)
 ```
 
@@ -179,5 +216,10 @@ uv run pytest
 ```
 
 Full type annotations, Pydantic for everything persisted, no bare excepts, structured JSONL
-logging only, and no `print` in library code. CI runs lint, types and tests on every push — it
-makes no model calls and needs no secrets.
+logging only, and no `print` in library code. An AST test also fails the build if a structured
+log field shadows a `LogRecord` attribute — that one is invisible until a handler puts the
+logger at INFO, and then it is fatal.
+
+CI runs lint, types and tests on every push. It installs Chromium, because locator synthesis
+is verified against a real accessibility tree rather than a mock of one. It makes no model
+calls and needs no secrets.
