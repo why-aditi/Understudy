@@ -555,7 +555,10 @@ application two screens from where the run expected it.
   `cua replay --capability member.verify --params '{"code": "QX7-4412"}'` succeeds — so the
   value really was typed — while the literal appears zero times in `run.jsonl`, `result.json`
   or the artifact, replaced by `[REDACTED:code]`. The harness puts the code in a query string
-  deliberately, so it lands in a logged field and the filter has to catch it there.
+  deliberately, so it lands in a logged field and the filter has to catch it there. That code
+  is invented harness fixture data, like every other value in this repo — it is printed here
+  so the command is runnable, and it is a secret only in the sense that the system treats it
+  as one.
   `evidence/redaction-proof.txt`.
 - **Screenshots default to off.** With `--allow-screenshots` they are written as files in the
   evidence directory and never inlined into a log record. Whether they also reach the model is
