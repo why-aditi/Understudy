@@ -158,7 +158,7 @@ def test_following_takes_the_next_node_of_that_role(card: AXNode) -> None:
         params={
             "anchor_text": "Savings Balance",
             "relation": "following",
-            "target_role": "LayoutTableCell",
+            "target_role": "cell",
             "index": 0,
         },
         stability_score=0.8,
@@ -175,7 +175,7 @@ def test_within_region_stays_inside_its_section(card: AXNode) -> None:
         params={
             "anchor_text": "Recent activity",
             "relation": "within_region",
-            "target_role": "LayoutTableCell",
+            "target_role": "cell",
             "index": 0,
         },
         stability_score=0.8,
@@ -190,12 +190,12 @@ def test_a_region_does_not_leak_into_the_next_heading(card: AXNode) -> None:
     region_cells = [
         node
         for node in walk(card)
-        if node.role == "LayoutTableCell" and "4,182.55" in ((node.name or "") + (node.value or ""))
+        if node.role == "cell" and "4,182.55" in ((node.name or "") + (node.value or ""))
     ]
     assert region_cells, "fixture no longer contains the balance cell"
     locator = Locator(
         strategy="region_ordinal",
-        params={"region": "Recent activity", "role": "LayoutTableCell", "index": 0},
+        params={"region": "Recent activity", "role": "cell", "index": 0},
         stability_score=0.5,
         verified_unique_at_record=True,
     )
@@ -351,3 +351,164 @@ def test_synthesis_fails_loudly_when_the_target_is_not_in_the_tree(accounts: AXN
 def test_synthesis_fails_when_nth_is_out_of_range(accounts: AXNode) -> None:
     with pytest.raises(SynthesisError, match="only 3 nodes matched"):
         synthesize(accounts, ActionTarget(role="link", name="Open", nth=9))
+
+
+# ---- synthesis and resolution are two halves of one contract ------------------------------
+
+
+def test_a_synthesised_control_resolves_back_to_the_node_it_was_recorded_from(
+    accounts: AXNode,
+) -> None:
+    """The round trip the artifact exists for: record a control, then find it again.
+
+    Recording and replay are the two halves that must agree. If synthesis can produce a
+    descriptor the resolver cannot walk, every capability is a coin flip.
+    """
+    from cua.recording.synthesizer import find_target
+    from cua.replay.resolver import Resolver
+
+    for anchor in ("Savings", "Chequing", "Term deposit"):
+        target = ActionTarget(role="link", name="Open", near=anchor)
+        recorded = find_target(accounts, target)
+
+        descriptor = synthesize(accounts, target)
+        resolution = Resolver().resolve(accounts, descriptor)
+
+        assert resolution.node is recorded, f"{anchor}: resolved to a different node"
+        assert resolution.drift is None, f"{anchor}: primary should fire on an unchanged page"
+        assert resolution.strategy == descriptor.primary.strategy
+
+
+def test_a_recorded_control_survives_the_page_changing_under_it(accounts: AXNode) -> None:
+    """Drop the anchor the primary depends on; a lower candidate should still find it."""
+    from cua.replay.resolver import Resolver
+    from cua.replay.resolver import walk as walk_tree
+
+    target = ActionTarget(role="link", name="Open", near="Chequing")
+    descriptor = synthesize(accounts, target)
+    assert len(descriptor.candidates) > 1, "a chain of one cannot degrade"
+
+    # Rewrite the reference cell, as a product rename would.
+    moved = accounts.model_copy(deep=True)
+    for candidate in walk_tree(moved):
+        if candidate.name == "CHQ-40771":
+            candidate.name = "CHQ-99999-RENAMED"
+        for grandchild in candidate.children:
+            if grandchild.name == "CHQ-40771":
+                grandchild.name = "CHQ-99999-RENAMED"
+
+    resolution = Resolver().resolve(moved, descriptor)
+    assert resolution.node is not None
+    assert resolution.drift is not None, "falling back should always be visible"
+
+
+# ---- verification and acting must share one role vocabulary --------------------------------
+
+# The account card: label/value pairs in a layout table, which Chromium reports internally as
+# LayoutTableCell. Playwright's role engine has never heard of that name.
+CARD_FOR_ACTING = """
+<table><tr><td>
+  <h1>Account SAV-88120</h1>
+  <table>
+    <tr><td><b>Account type</b></td><td>Savings</td></tr>
+    <tr><td><b>Savings Balance</b></td><td>4,182.55</td></tr>
+  </table>
+</td></tr></table>
+"""
+
+
+def test_the_observed_roles_are_roles_a_role_locator_understands(page: Page) -> None:
+    """A layout table must not leak Chromium's internal role names into the artifact.
+
+    Recording verifies against the accessibility tree and replay acts through a role
+    locator. If the two vocabularies differ, a candidate verifies as unique and is then
+    unfindable - or worse, finds something else.
+    """
+    from cua.replay.resolver import walk as walk_tree
+
+    tree = tree_for(page, CARD_FOR_ACTING)
+    internal = sorted({n.role for n in walk_tree(tree) if n.role.startswith("Layout")})
+    assert internal == [], f"internal roles leaked into the tree: {internal}"
+
+
+def test_a_synthesised_candidate_can_actually_be_acted_on(page: Page) -> None:
+    """The end-to-end contract: what recording verified, acting must find - and only it."""
+    from cua.replay.engine import to_action_target
+    from cua.replay.resolver import Resolver
+    from cua.surfaces.base import Action
+
+    tree = tree_for(page, CARD_FOR_ACTING)
+    descriptor = synthesize(tree, ActionTarget(role="cell", near="Savings Balance", nth=1))
+
+    resolution = Resolver().resolve(tree, descriptor)
+    surface = WebSurface(page)
+    result = surface.act(
+        Action(kind="extract", target=to_action_target(resolution.locator, descriptor))
+    )
+
+    assert result.ok, result.error
+    assert result.extracted == "4,182.55", "acted on a different node than the one recorded"
+
+
+def test_every_actionable_candidate_acts_on_the_same_node(page: Page) -> None:
+    """A fallback must find the same control, not merely find something.
+
+    Landing on a *different* control is the worst outcome available: the run succeeds and
+    returns the wrong answer, which no amount of downstream checking will notice.
+    """
+    from cua.replay.engine import can_act_through, to_action_target
+    from cua.surfaces.base import Action
+
+    tree = tree_for(page, CARD_FOR_ACTING)
+    descriptor = synthesize(tree, ActionTarget(role="cell", near="Savings Balance", nth=1))
+    surface = WebSurface(page)
+
+    actionable = [c for c in descriptor.candidates if can_act_through(c)]
+    assert actionable, "the whole chain was unactionable"
+
+    for candidate in actionable:
+        result = surface.act(Action(kind="extract", target=to_action_target(candidate, descriptor)))
+        assert result.ok, f"{candidate.strategy}: {result.error}"
+        assert result.extracted == "4,182.55", (
+            f"{candidate.strategy} acted on a different node: {result.extracted!r}"
+        )
+
+
+def test_a_candidate_the_surface_cannot_act_through_is_skipped_not_misapplied(
+    page: Page,
+) -> None:
+    """`following` resolves against a tree but has no containment equivalent to act through.
+
+    Skipping it costs one fallback. Translating it approximately cost the wrong cell.
+    """
+    from cua.replay.engine import can_act_through
+    from cua.replay.resolver import Resolver
+
+    tree = tree_for(page, CARD_FOR_ACTING)
+    descriptor = synthesize(tree, ActionTarget(role="cell", near="Savings Balance", nth=1))
+    following = [
+        c
+        for c in descriptor.candidates
+        if c.strategy == "anchor_relative" and c.params.get("relation") == "following"
+    ]
+    assert following, "the fixture no longer produces a following candidate"
+    assert not can_act_through(following[0])
+
+    # Put it first in the chain so the walk has to reach it, then confirm it is skipped
+    # rather than resolved-and-misapplied.
+    from cua.schema.models import ControlDescriptor
+
+    forced = ControlDescriptor(
+        role=descriptor.role,
+        name=descriptor.name,
+        candidates=[
+            following[0].model_copy(update={"stability_score": 0.99}),
+            *[c for c in descriptor.candidates if can_act_through(c)],
+        ],
+    )
+    resolution = Resolver(actionable=can_act_through).resolve(tree, forced)
+
+    skipped = [a for a in resolution.attempts if a.skipped]
+    assert [a.strategy for a in skipped] == ["anchor_relative"]
+    assert "cannot act through" in (skipped[0].note or "")
+    assert can_act_through(resolution.locator), "the walk settled on an unactionable candidate"

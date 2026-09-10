@@ -1,0 +1,127 @@
+{
+  "schema_version": "1.0",
+  "id": "member.savings_balance.read",
+  "name": "Read savings balance",
+  "description": "Read the current savings balance from an open sub-account screen.",
+  "version": "1.0.0",
+  "app": {
+    "vendor_product": "meridian-core",
+    "product_version": "4.2.1",
+    "tenant_id": "tenant-a",
+    "base_capability_id": null
+  },
+  "surface_kind": "web",
+  "entry": {
+    "url": "http://127.0.0.1:8099/tenant-a/members/12345/accounts/SAV-88120",
+    "requires_authenticated_session": true
+  },
+  "parameters": [],
+  "outputs": [
+    {
+      "name": "balance",
+      "type": "string",
+      "source_step_id": "read-balance",
+      "description": "Current savings balance.",
+      "sensitive": false
+    }
+  ],
+  "steps": [
+    {
+      "id": "read-balance",
+      "intent": "read the savings balance",
+      "action": "extract",
+      "target": {
+        "role": "cell",
+        "name": "4,182.55",
+        "candidates": [
+          {
+            "strategy": "role_name",
+            "params": {
+              "role": "cell",
+              "name": "4,182.55",
+              "match": "exact"
+            },
+            "stability_score": 0.85,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "anchor_relative",
+            "params": {
+              "anchor_text": "Savings Balance",
+              "anchor_role": "StaticText",
+              "relation": "following",
+              "target_role": "cell",
+              "index": 0
+            },
+            "stability_score": 0.8,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "anchor_relative",
+            "params": {
+              "anchor_text": "Savings Balance",
+              "anchor_role": "StaticText",
+              "relation": "same_row",
+              "target_role": "cell",
+              "index": 1
+            },
+            "stability_score": 0.6,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "anchor_relative",
+            "params": {
+              "anchor_text": "Account SAV-88120",
+              "relation": "within_region",
+              "target_role": "cell",
+              "index": 5
+            },
+            "stability_score": 0.6,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "region_ordinal",
+            "params": {
+              "region": "Account SAV-88120",
+              "role": "cell",
+              "index": 5
+            },
+            "stability_score": 0.35,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          }
+        ]
+      },
+      "value": null,
+      "checkpoint": {
+        "kind": "text_present",
+        "params": {
+          "text": "Savings Balance"
+        },
+        "negate": false
+      },
+      "timeout_ms": 10000,
+      "risk_class": "safe"
+    }
+  ],
+  "outcomes": [],
+  "policy": {
+    "allowed_hosts": [],
+    "allowed_routes": [],
+    "max_steps": 25,
+    "max_wall_clock_seconds": 300
+  },
+  "provenance": {
+    "discovered_at": "2026-09-10T08:49:04.911880Z",
+    "model": "hand-written",
+    "discovery_run_id": "manual",
+    "state": "approved",
+    "approved_by": "aditi",
+    "outcomes_reviewed": true
+  },
+  "stability": null
+}

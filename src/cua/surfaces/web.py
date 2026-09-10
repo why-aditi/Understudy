@@ -20,6 +20,16 @@ DEFAULT_HEADLESS = False
 # models containment, so this list is not web-specific.
 CONTAINER_ROLES = ("row", "listitem", "group", "article", "region", "form", "dialog", "table")
 
+# Chromium reports layout tables under internal role names that no ARIA role engine knows.
+# We observe and verify against the accessibility tree but act through role locators, so the
+# two must share one vocabulary or a candidate can verify and then be unfindable. Playwright
+# computes these roles straight from the HTML tag, so `<td>` is a cell either way.
+ROLE_ALIASES = {
+    "LayoutTable": "table",
+    "LayoutTableRow": "row",
+    "LayoutTableCell": "cell",
+}
+
 # Actions that cannot do anything without a control to act on.
 _NEEDS_TARGET = frozenset({"click", "type", "select", "wait_for", "extract"})
 _NEEDS_VALUE = frozenset({"navigate", "type", "select", "press_key"})
@@ -191,7 +201,8 @@ class WebSurface:
 
 def _convert(node: dict[str, Any], by_id: dict[str, dict[str, Any]]) -> AXNode:
     """One CDP AX node into an AXNode. Ignored nodes become presentation, so pruning hoists them."""
-    role = "none" if node.get("ignored") else _field(node, "role") or "none"
+    raw = "none" if node.get("ignored") else _field(node, "role") or "none"
+    role = ROLE_ALIASES.get(raw, raw)
     return AXNode(
         role=role,
         name=_field(node, "name"),

@@ -6,16 +6,21 @@ accessibility tree models, so the same locator params resolve against a Windows 
 the same code. `dom_hint` is the exception, and is confined to the one function at the bottom.
 """
 
+import logging
 import re
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
+from dataclasses import dataclass
 
 from playwright.sync_api import Page
 
-from cua.schema.models import Locator
+from cua.schema.models import ControlDescriptor, Locator
 from cua.surfaces.base import AXNode
 
-# Roles that behave like a table row, including the layout tables legacy apps are built from.
-ROW_ROLES = frozenset({"row", "LayoutTableRow"})
+_log = logging.getLogger(__name__)
+
+# WebSurface normalises Chromium's layout-table roles to their ARIA names before we see them,
+# so a legacy layout row and a real data row are both "row" here.
+ROW_ROLES = frozenset({"row"})
 HEADING_ROLES = frozenset({"heading", "Heading"})
 REGION_ROLES = frozenset({"region", "main", "form", "navigation", "complementary", "article"})
 
@@ -182,3 +187,151 @@ def depends_on_generated_id(locator: Locator) -> bool:
     """Whether this candidate leans on an id that will not survive the next render."""
     selector = str(locator.params.get("css") or locator.params.get("xpath") or "")
     return bool(GENERATED_ID.search(selector))
+
+
+# ---- walking the candidate chain -----------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Attempt:
+    """One candidate, and what happened when it was tried.
+
+    `matched` is the node count: 0 means the candidate no longer finds anything, and any
+    number above 1 means it became ambiguous since it was recorded. Both are failures, and
+    a failure report that cannot tell them apart is not debuggable.
+    """
+
+    strategy: str
+    matched: int | None
+    skipped: bool = False
+    note: str | None = None
+
+    def describe(self) -> str:
+        if self.skipped:
+            return f"{self.strategy} (skipped: {self.note})"
+        return f"{self.strategy} matched {self.matched}"
+
+
+@dataclass(frozen=True)
+class Resolution:
+    """Which candidate actually found the control, and whether that is worrying."""
+
+    locator: Locator
+    node: AXNode | None
+    attempts: list[Attempt]
+    drift: str | None = None
+
+    @property
+    def strategy(self) -> str:
+        return self.locator.strategy
+
+
+class LocatorExhausted(Exception):
+    """No candidate in the chain resolved to exactly one node.
+
+    Carries every attempt so a failure can be read without re-running it: which strategies
+    were tried, in what order, and whether each found nothing or found too much.
+    """
+
+    def __init__(self, descriptor: ControlDescriptor, attempts: list[Attempt]) -> None:
+        self.descriptor = descriptor
+        self.attempts = attempts
+        detail = "; ".join(attempt.describe() for attempt in attempts)
+        super().__init__(
+            f"no candidate resolved {descriptor.role!r} named {descriptor.name!r}: {detail}"
+        )
+
+
+class Resolver:
+    """Walks a ControlDescriptor's candidates in rank order and reports which one fired.
+
+    Surface-agnostic by construction: the only thing a surface changes is whether it can
+    attempt a `surface_specific` candidate at all. A desktop resolver sets
+    `supports_surface_specific=False` and the dom_hint is skipped rather than failed, because
+    "this surface cannot express that" is not the same as "that no longer finds the control".
+    """
+
+    def __init__(
+        self,
+        *,
+        page: Page | None = None,
+        supports_surface_specific: bool = True,
+        actionable: Callable[[Locator], bool] | None = None,
+    ) -> None:
+        self.page = page
+        self.supports_surface_specific = supports_surface_specific
+        # Resolving a candidate and being able to *act* through it are different questions.
+        # A caller that will act supplies this so an unactionable candidate is skipped rather
+        # than resolved and then mis-applied to a different control.
+        self.actionable = actionable
+
+    def _count(self, tree: AXNode, locator: Locator) -> tuple[int, AXNode | None]:
+        if locator.strategy == "dom_hint":
+            count = dom_hint_count(self.page, locator) if self.page else 0
+            return count, None
+        found = matches(tree, locator)
+        return len(found), found[0] if len(found) == 1 else None
+
+    def resolve(self, tree: AXNode, descriptor: ControlDescriptor) -> Resolution:
+        """The first candidate that finds exactly one node, with the trail that got there."""
+        attempts: list[Attempt] = []
+
+        for index, candidate in enumerate(descriptor.candidates):
+            if candidate.surface_specific and not self.supports_surface_specific:
+                attempts.append(
+                    Attempt(
+                        strategy=candidate.strategy,
+                        matched=None,
+                        skipped=True,
+                        note="surface-specific candidate on a non-web surface",
+                    )
+                )
+                continue
+            if self.actionable is not None and not self.actionable(candidate):
+                attempts.append(
+                    Attempt(
+                        strategy=candidate.strategy,
+                        matched=None,
+                        skipped=True,
+                        note="the surface cannot act through this candidate",
+                    )
+                )
+                continue
+            if candidate.strategy == "dom_hint" and self.page is None:
+                attempts.append(
+                    Attempt(
+                        strategy=candidate.strategy,
+                        matched=None,
+                        skipped=True,
+                        note="no DOM available to resolve against",
+                    )
+                )
+                continue
+
+            count, node = self._count(tree, candidate)
+            attempts.append(Attempt(strategy=candidate.strategy, matched=count))
+            if count != 1:
+                continue
+
+            drift = None
+            if index > 0:
+                # The chain did its job, and that is precisely why it is worth a signal:
+                # the surface has moved far enough that the recorded primary no longer works.
+                tried = ", ".join(a.describe() for a in attempts[:index])
+                drift = (
+                    f"{descriptor.role}/{descriptor.name!r}: fell back to "
+                    f"{candidate.strategy} at rank {index} (tried {tried})"
+                )
+                _log.info(
+                    "locator_drift",
+                    extra={
+                        "control_role": descriptor.role,
+                        "control_name": descriptor.name,
+                        "fired": candidate.strategy,
+                        "rank": index,
+                        "primary": descriptor.primary.strategy,
+                    },
+                )
+            return Resolution(locator=candidate, node=node, attempts=attempts, drift=drift)
+
+        raise LocatorExhausted(descriptor, attempts)

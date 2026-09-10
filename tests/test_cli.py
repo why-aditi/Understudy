@@ -20,7 +20,6 @@ def test_help_lists_every_command() -> None:
 @pytest.mark.parametrize(
     ("argv"),
     [
-        ["replay", "--capability", "member.balance.lookup"],
         ["review", "--capability", "member.balance.lookup"],
         ["stability", "--capability", "member.balance.lookup"],
         ["operator"],
@@ -29,6 +28,12 @@ def test_help_lists_every_command() -> None:
 def test_command_raises_not_implemented(argv: list[str]) -> None:
     result = runner.invoke(app, argv)
     assert isinstance(result.exception, NotImplementedError)
+
+
+def test_replay_is_wired_to_the_engine() -> None:
+    """replay is implemented, so it fails on a real precondition, not NotImplementedError."""
+    result = runner.invoke(app, ["replay", "--capability", "nope.does.not.exist"])
+    assert not isinstance(result.exception, NotImplementedError)
 
 
 def test_discover_is_wired_to_the_runner() -> None:

@@ -1,7 +1,10 @@
 """Structural guards for the architectural constraints. A violation here is a bug, not a nit."""
 
 import ast
+import inspect
 import logging
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -208,3 +211,84 @@ def test_the_reserved_log_key_checker_catches_a_real_collision() -> None:
     assert "name" in fields and "control_name" in fields
     assert "name" in RESERVED_LOG_KEYS
     assert "control_name" not in RESERVED_LOG_KEYS
+
+
+# --- C4: replay makes zero model calls, because no model is reachable from it ------------
+
+FORBIDDEN_FOR_REPLAY = "cua.llm"
+
+
+def _cua_imports(path: Path) -> set[str]:
+    """Every `cua.*` module this file imports, including imports inside functions."""
+    found: set[str] = set()
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.Import):
+            found.update(alias.name for alias in node.names if alias.name.startswith("cua"))
+        elif isinstance(node, ast.ImportFrom) and node.module and node.module.startswith("cua"):
+            found.add(node.module)
+            # `from cua.replay import engine` names the submodule in the alias, not the module.
+            found.update(f"{node.module}.{alias.name}" for alias in node.names)
+    return found
+
+
+def _module_path(module: str) -> Path | None:
+    base = SRC.parents[0] / Path(*module.split("."))
+    for candidate in (base.with_suffix(".py"), base / "__init__.py"):
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def import_closure(module: str) -> set[str]:
+    """Every cua module transitively reachable from this one."""
+    seen: set[str] = set()
+    queue = [module]
+    while queue:
+        current = queue.pop()
+        if current in seen:
+            continue
+        seen.add(current)
+        path = _module_path(current)
+        if path is not None:
+            queue.extend(_cua_imports(path) - seen)
+    return seen
+
+
+def test_c4_no_llm_module_is_reachable_from_the_replay_engine() -> None:
+    """C4: replay makes zero model calls. Enforced by what it is allowed to import."""
+    closure = import_closure("cua.replay.engine")
+    offenders = sorted(m for m in closure if m.startswith(FORBIDDEN_FOR_REPLAY))
+    assert not offenders, f"cua.replay.engine can reach {offenders}"
+    assert "cua.replay.resolver" in closure, "the closure walk found nothing; check the paths"
+
+
+def test_the_c4_checker_would_notice_an_llm_import() -> None:
+    """A constraint check that cannot fail is not a check."""
+    closure = import_closure("cua.discovery.runner")
+    assert any(m.startswith(FORBIDDEN_FOR_REPLAY) for m in closure), (
+        "the discovery runner does use an LLM, so the checker must see it there"
+    )
+
+
+def test_c4_holds_at_runtime_not_just_on_paper() -> None:
+    """Import the engine in a clean interpreter; no llm module may end up loaded."""
+    probe = (
+        "import sys; import cua.replay.engine; "
+        "print([m for m in sys.modules if m.startswith('cua.llm')])"
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", probe],
+        capture_output=True,
+        text=True,
+        cwd=SRC.parents[1],
+        check=True,
+    )
+    assert completed.stdout.strip() == "[]", f"llm modules loaded: {completed.stdout.strip()}"
+
+
+def test_the_replay_engine_takes_no_llm_collaborator() -> None:
+    """The constructor is the seam an LLM would have to arrive through. It has no such door."""
+    from cua.replay.engine import ReplayEngine
+
+    parameters = set(inspect.signature(ReplayEngine.__init__).parameters)
+    assert parameters == {"self", "surface", "policy", "logger", "resolver", "monotonic", "sleep"}

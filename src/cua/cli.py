@@ -92,9 +92,57 @@ def replay(
     params: Annotated[str, typer.Option(help="JSON object of capability parameters.")] = "{}",
     tenant: Annotated[str | None, typer.Option(help="Tenant overlay to apply.")] = None,
     offline: Annotated[bool, typer.Option(help="Replay against recorded fixtures.")] = False,
+    attended: Annotated[
+        bool, typer.Option(help="Permit replaying a draft capability, with a human watching.")
+    ] = False,
+    headless: Annotated[bool, typer.Option(help="Hide the browser.")] = False,
 ) -> None:
     """Execute a saved capability deterministically, with no model in the decision loop."""
-    raise NotImplementedError
+    import json
+
+    from cua.discovery.runner import new_run_id
+    from cua.evidence.logger import RunLogger
+    from cua.policy.engine import PolicyContext, PolicyEngine
+    from cua.policy.rules import load_policy
+    from cua.replay.engine import ReplayEngine, can_act_through, load_capability
+    from cua.replay.resolver import Resolver
+    from cua.session.registry import SessionRegistry
+    from cua.surfaces.base import Action
+    from cua.surfaces.web import WebSurface
+
+    if offline:
+        raise typer.BadParameter("--offline needs the recorded-fixture surface, which is not built")
+
+    artifact = load_capability(capability)
+    if tenant and tenant != artifact.app.tenant_id:
+        raise typer.BadParameter(
+            f"{capability} was recorded for tenant {artifact.app.tenant_id!r}; "
+            "overlay resolution is not built yet"
+        )
+
+    run_id = f"replay-{new_run_id()}"
+    engine = PolicyEngine(load_policy())
+
+    with RunLogger(run_id) as run_log, SessionRegistry(headless=headless) as sessions:
+        page = sessions.attach(run_id)
+        surface = WebSurface(page)
+        # The entry point is an action like any other, so it goes through the chokepoint.
+        entry = Action(kind="navigate", value=artifact.entry.url)
+        verdict = engine.check(entry, PolicyContext(mode="replay", capability_id=artifact.id))
+        if not verdict.allowed:
+            raise typer.BadParameter(f"policy refused the entry point: {verdict.reason}")
+        surface.act(entry)
+
+        result = ReplayEngine(
+            surface=surface,
+            policy=engine,
+            logger=run_log,
+            resolver=Resolver(page=page, actionable=can_act_through),
+        ).run(artifact, json.loads(params), attended=attended)
+
+    typer.echo(json.dumps(result.model_dump(mode="json"), indent=2))
+    if result.status == "failure":
+        raise typer.Exit(code=1)
 
 
 @app.command()

@@ -42,11 +42,9 @@ PRESENTATION_ROLES = frozenset({"presentation", "none", "generic", "InlineTextBo
 STRUCTURAL_ROLES = frozenset(
     {
         "table",
-        "LayoutTable",
         "grid",
         "treegrid",
         "row",
-        "LayoutTableRow",
         "rowgroup",
         "list",
         "listitem",
