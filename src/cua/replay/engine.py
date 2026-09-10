@@ -678,8 +678,15 @@ _ACTIONS: dict[str, Any] = {
 
 
 def load_capability(capability_id: str, directory: Path = CAPABILITY_DIR) -> Capability:
-    """Read a saved capability by id."""
-    path = directory / f"{capability_id}.json"
+    """Read a saved capability by id, or by path to its file.
+
+    Accepting a path matters for the artifact a discovery run just emitted: it lands beside
+    its evidence rather than in the capability directory, and requiring a copy-and-rename
+    before it can be replayed puts a manual step in the middle of the one flow this project
+    is about.
+    """
+    given = Path(capability_id)
+    path = given if given.suffix == ".json" else directory / f"{capability_id}.json"
     try:
         raw = path.read_text(encoding="utf-8")
     except OSError as exc:

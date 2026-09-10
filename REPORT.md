@@ -6,7 +6,7 @@ versioned capability artifact and replays it deterministically with no model in 
 **Citations.** Four evidence files are committed: `desktop-ax-proof.txt`,
 `tenant-overlay-proof.txt`, `catalog-agent-demo.txt`, `redaction-proof.txt`. The rest of
 `evidence/` is gitignored because run output carries captured page state; those runs are named
-by id below and reproduce from the README's commands. 524 tests, 26 files, ruff and mypy strict clean.
+by id below and reproduce from the README's commands. 527 tests, 26 files, ruff and mypy strict clean.
 
 ## Architecture
 

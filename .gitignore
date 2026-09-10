@@ -1,9 +1,23 @@
 # secrets
 .env
 
-# run output - may contain captured page state. Anchored to the repo root: an
-# unanchored "evidence/" also matches src/cua/evidence/ and silently drops the package.
-/evidence/
+# Run output. Ignored by default because in production it would carry captured page state;
+# every run here is against the synthetic harness, so a named set is committed as the
+# deliverable. Anchored to the repo root: an unanchored "evidence/" also matches
+# src/cua/evidence/ and silently drops the package.
+#
+# `/evidence/*` rather than `/evidence/` so the negations below can re-include specific
+# entries - git cannot un-ignore anything inside a directory it has excluded outright.
+/evidence/*
+!/evidence/README.md
+!/evidence/*.txt
+# One discovery run: the trace, the accessibility snapshots the model reasoned over, the
+# screenshots, and the draft artifact it emitted.
+!/evidence/discovery-20260910T211157-fb8cb8/
+# One replay per outcome class, which is the distinction the whole result contract exists for.
+!/evidence/replay-business-not-found/
+!/evidence/replay-recoverable-modal/
+!/evidence/replay-hard-failure-permission/
 
 # browser artifacts
 .playwright/

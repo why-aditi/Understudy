@@ -1,0 +1,19 @@
+{
+  "status": "success",
+  "capability_id": "member.savings_balance.read",
+  "capability_version": "1.0.0",
+  "run_id": "replay-recoverable-modal",
+  "outputs": {
+    "balance": "4,182.55"
+  },
+  "outcome": null,
+  "failure": null,
+  "steps_executed": 1,
+  "duration_ms": 184,
+  "locator_usage": {
+    "read-balance": "role_name"
+  },
+  "drift_signals": [
+    "read-balance: recovered from 'maintenance_notice' (attempt 1 of 2)"
+  ]
+}

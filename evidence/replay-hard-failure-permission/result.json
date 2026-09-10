@@ -1,0 +1,27 @@
+{
+  "status": "failure",
+  "capability_id": "member.savings_balance.read",
+  "capability_version": "1.0.0",
+  "run_id": "replay-hard-failure-permission",
+  "outputs": null,
+  "outcome": null,
+  "failure": {
+    "step_id": "read-balance",
+    "expected": "a control matching cell",
+    "observed": "role_name matched 0; anchor_relative (skipped: the surface cannot act through this candidate); anchor_relative matched 0; anchor_relative (skipped: the surface cannot act through this candidate); region_ordinal (skipped: the surface cannot act through this candidate)",
+    "candidates_tried": [
+      "role_name",
+      "anchor_relative",
+      "anchor_relative",
+      "anchor_relative",
+      "region_ordinal"
+    ],
+    "evidence_paths": [
+      "evidence\\replay-hard-failure-permission\\failure-read-balance.ax.json"
+    ]
+  },
+  "steps_executed": 0,
+  "duration_ms": 53,
+  "locator_usage": {},
+  "drift_signals": []
+}

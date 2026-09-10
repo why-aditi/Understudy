@@ -1,0 +1,20 @@
+{
+  "status": "business_outcome",
+  "capability_id": "member.search",
+  "capability_version": "1.0.0",
+  "run_id": "replay-business-not-found",
+  "outputs": null,
+  "outcome": {
+    "name": "member_not_found",
+    "kind": "business",
+    "message": "No member matches the supplied id."
+  },
+  "failure": null,
+  "steps_executed": 2,
+  "duration_ms": 189,
+  "locator_usage": {
+    "enter-id": "role_name",
+    "submit-search": "role_name"
+  },
+  "drift_signals": []
+}

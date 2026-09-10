@@ -1,0 +1,60 @@
+# Evidence
+
+Runs against `apps/harness`, which is synthetic throughout — invented members, invented
+institution names, no real PII anywhere. Every run here was produced by the commands in the
+root README and can be reproduced with them.
+
+`evidence/` is gitignored by default, because in production run output would carry captured
+page state. The set below is committed deliberately, listed by name in `.gitignore` so that
+what is published is a decision rather than an accident.
+
+## The end-to-end thread
+
+**`discovery-20260910T211157-fb8cb8/`** — one real LLM-driven run (`gpt-oss-120b`, Groq free
+tier) that reached its goal in four steps.
+
+| | |
+|---|---|
+| `run.jsonl` | one record per step: observation hash, pruning ratio, the model's stated reasoning, the proposed action, the policy verdict, the result, elapsed time |
+| `ax-snapshots/` | the pruned accessibility tree the model actually reasoned over, per step — this is the input to every decision, and unlike a screenshot it costs nothing to share |
+| `screenshots/` | captured because the run passed `--allow-screenshots`; off by default |
+| `capability.json` | the draft artifact the run emitted, assembled from the trace |
+
+That artifact replays deterministically, with no model in the loop:
+
+```bash
+uv run cua replay --capability evidence/discovery-20260910T211157-fb8cb8/capability.json --attended
+```
+
+`--attended` because it is a **draft**: `state=draft`, no outcomes, every candidate
+`verified_unique_at_record=false`. The model chose those controls and no human has agreed they
+are the right ones, so it may not replay unattended.
+
+## One replay per outcome class
+
+The three-class taxonomy is the distinction the result contract exists for, so there is a run
+for each. Which class a run was is in `result.json`'s `status`, not the directory name — the
+class is only known once the run ends.
+
+| directory | `status` | what it shows |
+|---|---|---|
+| `replay-business-not-found/` | `business_outcome` | "no such member" returned as a legitimate answer with a named outcome, **not** an exception |
+| `replay-recoverable-modal/` | `success` | an unexpected interstitial detected, recovered from, and recorded in `drift_signals` |
+| `replay-hard-failure-permission/` | `failure` | stopped with `FailureDetail` — the step, what was expected, what was observed, every candidate tried — plus `failure-read-balance.ax.json`, the accessibility snapshot of the screen it died on |
+
+## The four standalone proofs
+
+Each is generated from a real run rather than written by hand.
+
+| file | claim it backs |
+|---|---|
+| `desktop-ax-proof.txt` | recorded locator candidates resolve against a native Windows UI Automation tree through the unmodified resolver; `dom_hint` is the only strategy skipped |
+| `tenant-overlay-proof.txt` | one capability recorded on tenant-a replays on tenant-b through an overlay alone, no re-recording — plus a deliberately incomplete overlay that drift detection catches |
+| `catalog-agent-demo.txt` | an LLM picks a capability by name, calls it with typed args, and gets a `ReplayResult` back — with model calls during replay measured at zero |
+| `redaction-proof.txt` | a sensitive parameter reaches the surface and never reaches disk |
+
+## What is not here
+
+Every other run this project produced. They are reproducible rather than checked in: the run
+ids quoted in `README.md` and `REPORT.md` name directories on the machine that produced them.
+No screen recording — optional in the brief, and the accessibility snapshots carry more.

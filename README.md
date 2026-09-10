@@ -106,10 +106,31 @@ value simply never being written.
 cp .env.example .env      # then paste a key into it
 ```
 
-```bash
-# an LLM drives the app; the run and the draft artifact land in evidence/
-uv run cua discover --goal "Search for member 12345 and read the member name shown in the results table" --target "http://127.0.0.1:8099/tenant-a/" --provider groq --headless
+**Discover, then replay what you just discovered.** This is the whole thread in two commands:
 
+```bash
+# 1. an LLM drives the app. The run, the trees it reasoned over, and the draft artifact it
+#    produced all land in evidence/discovery-<run_id>/
+uv run cua discover --goal "Search for member 12345 and read the member name shown in the results table" --target "http://127.0.0.1:8099/tenant-a/" --provider groq --vendor-product meridian-core --headless
+
+# 2. replay that artifact deterministically, with no model in the decision loop
+uv run cua replay --capability "$(ls -d evidence/discovery-*/capability.json | tail -1)" --attended
+```
+
+`--capability` takes an id or a path, so the artifact replays where discovery left it — no
+copy-and-rename step in the middle of the one flow that matters. `--attended` is required
+because the emitted artifact is a **draft**: `state=draft`, no outcomes, every candidate
+`verified_unique_at_record=false`. The model chose those controls; until a human agrees, it
+cannot replay unattended. That gate is the same one that governs overlay staleness and what
+the agent catalog will list.
+
+A committed run of exactly this is in
+[`evidence/discovery-20260910T211157-fb8cb8/`](evidence/discovery-20260910T211157-fb8cb8),
+if you would rather read one than run one.
+
+Also with a key:
+
+```bash
 # an LLM picks a capability by name and calls it with typed args
 uv run python scripts/agent_demo.py
 ```
@@ -177,7 +198,7 @@ What is real, and what is not, stated plainly:
 
 `REPORT.md` is the engineering report: what was built, where it is weak, and what was cut.
 
-524 tests, ruff and mypy strict clean, green on every push.
+527 tests, ruff and mypy strict clean, green on every push.
 
 A discovery writes `evidence/discovery-<run_id>/`:
 
@@ -204,12 +225,13 @@ A replay writes `evidence/replay-<run_id>/` with `run.jsonl` and `result.json`. 
 three outcome classes a run was is in `result.json`'s `status`, not in the directory name: the
 class is only known once the run ends.
 
-`evidence/` is gitignored, because run output carries captured page state. The runs quoted
-throughout this README are **reproducible from the commands above rather than checked in** — the
-run ids name real directories on the machine that produced them. The exceptions are
-`evidence/desktop-ax-proof.txt`, `evidence/tenant-overlay-proof.txt`,
-`evidence/catalog-agent-demo.txt` and `evidence/redaction-proof.txt`, which carry no page
-state and are committed.
+A named set of runs is committed: one discovery run with its trees, screenshots and emitted
+artifact, one replay per outcome class, and four standalone proofs. See
+[`evidence/README.md`](evidence/README.md) for what each one shows. The rest of `evidence/` is
+gitignored — in production run output would carry captured page state — so the other run ids
+quoted below name directories on the machine that produced them and are reproducible from the
+commands above rather than checked in. What *is* published is listed by name in `.gitignore`,
+so it is a decision rather than an accident.
 
 A clean discovery looks like this:
 

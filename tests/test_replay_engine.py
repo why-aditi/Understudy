@@ -674,3 +674,31 @@ def test_a_capability_round_trips_through_disk(tmp_path: Path) -> None:
 def test_loading_a_missing_capability_says_where_it_looked(tmp_path: Path) -> None:
     with pytest.raises(ReplayError, match="cannot read capability"):
         load_capability("nope", tmp_path)
+
+
+def test_a_capability_can_be_loaded_by_path_not_only_by_id(tmp_path: Path) -> None:
+    """A discovery run's artifact lands beside its evidence, not in capabilities/.
+
+    Requiring a copy-and-rename before it can be replayed would put a manual step in the
+    middle of the one flow this project is about: discover, then replay what you discovered.
+    """
+    written = capability()
+    beside_evidence = tmp_path / "discovery-run" / "capability.json"
+    beside_evidence.parent.mkdir(parents=True)
+    beside_evidence.write_text(written.model_dump_json(indent=2), encoding="utf-8")
+
+    assert load_capability(str(beside_evidence)).id == written.id
+
+
+def test_loading_by_id_still_reads_the_capability_directory(tmp_path: Path) -> None:
+    written = capability()
+    (tmp_path / f"{written.id}.json").write_text(
+        written.model_dump_json(indent=2), encoding="utf-8"
+    )
+
+    assert load_capability(written.id, tmp_path).id == written.id
+
+
+def test_a_missing_path_names_the_path_rather_than_a_directory_lookup(tmp_path: Path) -> None:
+    with pytest.raises(ReplayError, match="no-such-run"):
+        load_capability(str(tmp_path / "no-such-run" / "capability.json"))

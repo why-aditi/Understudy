@@ -1,0 +1,201 @@
+{
+  "url": "http://127.0.0.1:8099/tenant-a/members/12345/accounts/SAV-88120?fail=permission",
+  "title": "Permission denied - Meridian Core Servicing",
+  "observation_hash": "9af162e9cdf3135e",
+  "tree": {
+    "role": "RootWebArea",
+    "name": "Permission denied - Meridian Core Servicing",
+    "value": null,
+    "children": [
+      {
+        "role": "table",
+        "name": null,
+        "value": null,
+        "children": [
+          {
+            "role": "row",
+            "name": null,
+            "value": null,
+            "children": [
+              {
+                "role": "cell",
+                "name": "Meridian Core Servicing",
+                "value": null,
+                "children": [
+                  {
+                    "role": "StaticText",
+                    "name": "Meridian Core Servicing",
+                    "value": null,
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "role": "row",
+            "name": null,
+            "value": null,
+            "children": [
+              {
+                "role": "table",
+                "name": null,
+                "value": null,
+                "children": [
+                  {
+                    "role": "row",
+                    "name": null,
+                    "value": null,
+                    "children": [
+                      {
+                        "role": "cell",
+                        "name": "Member search Daily reports",
+                        "value": null,
+                        "children": [
+                          {
+                            "role": "table",
+                            "name": null,
+                            "value": null,
+                            "children": [
+                              {
+                                "role": "row",
+                                "name": null,
+                                "value": null,
+                                "children": [
+                                  {
+                                    "role": "cell",
+                                    "name": "Member search",
+                                    "value": null,
+                                    "children": [
+                                      {
+                                        "role": "link",
+                                        "name": "Member search",
+                                        "value": null,
+                                        "children": [
+                                          {
+                                            "role": "StaticText",
+                                            "name": "Member search",
+                                            "value": null,
+                                            "children": []
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              },
+                              {
+                                "role": "row",
+                                "name": null,
+                                "value": null,
+                                "children": [
+                                  {
+                                    "role": "cell",
+                                    "name": "Daily reports",
+                                    "value": null,
+                                    "children": [
+                                      {
+                                        "role": "link",
+                                        "name": "Daily reports",
+                                        "value": null,
+                                        "children": [
+                                          {
+                                            "role": "StaticText",
+                                            "name": "Daily reports",
+                                            "value": null,
+                                            "children": []
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "role": "cell",
+                        "name": "Permission denied Your role does not permit access to this member record. Contact the servicing supervisor if you believe this is an error.",
+                        "value": null,
+                        "children": [
+                          {
+                            "role": "heading",
+                            "name": "Permission denied",
+                            "value": null,
+                            "children": [
+                              {
+                                "role": "StaticText",
+                                "name": "Permission denied",
+                                "value": null,
+                                "children": []
+                              }
+                            ]
+                          },
+                          {
+                            "role": "table",
+                            "name": null,
+                            "value": null,
+                            "children": [
+                              {
+                                "role": "row",
+                                "name": null,
+                                "value": null,
+                                "children": [
+                                  {
+                                    "role": "cell",
+                                    "name": "Your role does not permit access to this member record. Contact the servicing supervisor if you believe this is an error.",
+                                    "value": null,
+                                    "children": [
+                                      {
+                                        "role": "StaticText",
+                                        "name": "Your role does not permit access to this member record.",
+                                        "value": null,
+                                        "children": []
+                                      },
+                                      {
+                                        "role": "StaticText",
+                                        "name": "Contact the servicing supervisor if you believe this is an error.",
+                                        "value": null,
+                                        "children": []
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "role": "row",
+            "name": null,
+            "value": null,
+            "children": [
+              {
+                "role": "cell",
+                "name": "Meridian Core Servicing \u2014 version 4.2.1",
+                "value": null,
+                "children": [
+                  {
+                    "role": "StaticText",
+                    "name": "Meridian Core Servicing \u2014 version 4.2.1",
+                    "value": null,
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
