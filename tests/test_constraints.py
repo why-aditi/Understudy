@@ -62,6 +62,29 @@ def _receives_a_verdict(func: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
     return False
 
 
+def _forwards_its_own_action(
+    call: ast.Call, func: ast.FunctionDef | ast.AsyncFunctionDef | None
+) -> bool:
+    """A Surface decorator handing on the exact action it was given, unchanged.
+
+    `RecordingSurface.act(action)` calls `self._inner.act(action)`. No new action exists:
+    the one being forwarded was gated by whoever called the decorator. Requiring a verdict
+    here would mean re-checking an action that already passed, which is a second chokepoint
+    and therefore the thing C2 forbids.
+
+    Deliberately narrow. The method must be named `act`, the call must pass exactly one
+    positional argument, and that argument must be the method's own parameter by name. A
+    decorator that builds a different action, or forwards something else, is still flagged.
+    """
+    if func is None or func.name != "act":
+        return False
+    parameters = {a.arg for a in [*func.args.posonlyargs, *func.args.args, *func.args.kwonlyargs]}
+    if len(call.args) != 1 or call.keywords:
+        return False
+    argument = call.args[0]
+    return isinstance(argument, ast.Name) and argument.id in parameters
+
+
 def _is_gated(func: ast.FunctionDef | ast.AsyncFunctionDef | None) -> bool:
     """A call site is gated when its own function obtains or receives a PolicyVerdict.
 
@@ -92,7 +115,7 @@ def ungated_act_calls(source: str, filename: str = "<test>") -> list[str]:
     return [
         f"{filename}:{call.lineno} in {func.name if func else '<module>'}"
         for call, func in found
-        if not _is_gated(func)
+        if not _is_gated(func) and not _forwards_its_own_action(call, func)
     ]
 
 
@@ -110,6 +133,27 @@ def run(surface, action):
 
 MODULE_LEVEL_SOURCE = """
 surface.act(action)
+"""
+
+# A Surface decorator handing on exactly what it was given: gated by its caller.
+FORWARDING_SOURCE = """
+class Recording:
+    def act(self, action):
+        return self._inner.act(action)
+"""
+
+# The same shape, but building a different action. Still a bypass.
+REWRITING_SOURCE = """
+class Rewriting:
+    def act(self, action):
+        return self._inner.act(Action(kind="click"))
+"""
+
+# Forwarding from a method that is not `act` is not the decorator pattern.
+SMUGGLING_SOURCE = """
+class Smuggler:
+    def go(self, action):
+        return self._inner.act(action)
 """
 
 
@@ -152,6 +196,20 @@ def run(surface, action, verdict):
     if verdict.allowed:
         surface.act(action)
 """
+
+
+def test_the_c2_checker_allows_a_decorator_forwarding_its_own_action() -> None:
+    """RecordingSurface is this shape. The action it forwards was already gated."""
+    assert ungated_act_calls(FORWARDING_SOURCE) == []
+
+
+def test_the_c2_checker_still_flags_a_decorator_that_rewrites_the_action() -> None:
+    """The exemption is for forwarding, not for wrapping. A new action needs a new verdict."""
+    assert ungated_act_calls(REWRITING_SOURCE) != []
+
+
+def test_the_c2_checker_still_flags_forwarding_from_a_method_that_is_not_act() -> None:
+    assert ungated_act_calls(SMUGGLING_SOURCE) != []
 
 
 def test_the_c2_checker_is_not_fooled_by_a_return_annotation() -> None:

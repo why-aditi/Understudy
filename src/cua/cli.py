@@ -103,7 +103,13 @@ def replay(
     capability: Annotated[str, typer.Option(help="Capability id to execute.")],
     params: Annotated[str, typer.Option(help="JSON object of capability parameters.")] = "{}",
     tenant: Annotated[str | None, typer.Option(help="Tenant overlay to apply.")] = None,
-    offline: Annotated[bool, typer.Option(help="Replay against recorded fixtures.")] = False,
+    offline: Annotated[
+        bool,
+        typer.Option(help="Replay a recorded fixture: no browser, no network, no API key."),
+    ] = False,
+    record_fixture: Annotated[
+        bool, typer.Option(help="Record this live run as an offline fixture.")
+    ] = False,
     attended: Annotated[
         bool, typer.Option(help="Permit replaying a draft capability, with a human watching.")
     ] = False,
@@ -118,12 +124,21 @@ def replay(
     from cua.policy.rules import load_policy
     from cua.replay.engine import ReplayEngine, can_act_through, load_capability
     from cua.replay.resolver import Resolver
+    from cua.schema.models import ReplayResult
     from cua.session.registry import SessionRegistry
-    from cua.surfaces.base import Action
+    from cua.surfaces.base import Action, Surface
+    from cua.surfaces.fixture import (
+        Fixture,
+        FixtureError,
+        FixtureSurface,
+        RecordingSurface,
+        load_fixture,
+        save_fixture,
+    )
     from cua.surfaces.web import WebSurface
 
-    if offline:
-        raise typer.BadParameter("--offline needs the recorded-fixture surface, which is not built")
+    if offline and record_fixture:
+        raise typer.BadParameter("--offline replays a fixture; --record-fixture makes one")
 
     from cua.replay.engine import ReplayError, validate_params
 
@@ -166,26 +181,68 @@ def replay(
     run_id = f"replay-{new_run_id()}"
     engine = PolicyEngine(load_policy())
 
-    with RunLogger(run_id) as run_log, SessionRegistry(headless=headless) as sessions:
-        sessions.open(run_id)
-        session = sessions.attach(run_id)
-        session.lock.acquire("automation", by=run_id)
-
-        page = session.page
-        surface = WebSurface(page, session.lock)
+    def execute(surface: Surface, resolver: Resolver, run_log: RunLogger) -> ReplayResult:
+        """One replay, from the entry point. Identical online and offline."""
         # The entry point is an action like any other, so it goes through the chokepoint.
         entry = Action(kind="navigate", value=artifact.entry.url)
         verdict = engine.check(entry, PolicyContext(mode="replay", capability_id=artifact.id))
         if not verdict.allowed:
             raise typer.BadParameter(f"policy refused the entry point: {verdict.reason}")
         surface.act(entry)
+        return ReplayEngine(surface=surface, policy=engine, logger=run_log, resolver=resolver).run(
+            artifact, supplied, attended=attended
+        )
 
-        result = ReplayEngine(
-            surface=surface,
-            policy=engine,
-            logger=run_log,
-            resolver=Resolver(page=page, actionable=can_act_through),
-        ).run(artifact, supplied, attended=attended)
+    if offline:
+        # No registry, no browser, no socket. Reading the tape is the only I/O.
+        try:
+            fixture = load_fixture(artifact.id)
+        except FixtureError as exc:
+            typer.echo(f"error: {exc}", err=True)
+            raise typer.Exit(code=2) from exc
+        if fixture.params != supplied:
+            typer.echo(
+                f"error: this fixture was recorded with params {json.dumps(fixture.params)}; "
+                f"you passed {json.dumps(supplied)}. A tape bakes in the values that were "
+                "typed into the surface, so it only replays the run it recorded.",
+                err=True,
+            )
+            raise typer.Exit(code=2)
+        with RunLogger(run_id) as run_log:
+            try:
+                # No page, so the resolver skips dom_hint exactly as a desktop one would.
+                result = execute(
+                    FixtureSurface(fixture), Resolver(actionable=can_act_through), run_log
+                )
+            except FixtureError as exc:
+                typer.echo(f"error: {exc}", err=True)
+                raise typer.Exit(code=1) from exc
+    else:
+        with RunLogger(run_id) as run_log, SessionRegistry(headless=headless) as sessions:
+            sessions.open(run_id)
+            session = sessions.attach(run_id)
+            session.lock.acquire("automation", by=run_id)
+
+            live = WebSurface(session.page, session.lock)
+            recorder = RecordingSurface(live) if record_fixture else None
+            result = execute(
+                recorder or live,
+                Resolver(page=session.page, actionable=can_act_through),
+                run_log,
+            )
+
+        if recorder is not None:
+            path = save_fixture(
+                Fixture(
+                    capability_id=artifact.id,
+                    capability_version=artifact.version,
+                    tenant_id=artifact.app.tenant_id,
+                    params=supplied,
+                    entry_url=artifact.entry.url,
+                    frames=recorder.frames,
+                )
+            )
+            typer.echo(f"fixture written to {path} ({len(recorder.frames)} frames)", err=True)
 
     typer.echo(json.dumps(result.model_dump(mode="json"), indent=2))
     if result.status == "failure":

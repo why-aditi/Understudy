@@ -12,13 +12,146 @@ during replay does. The artifact is not an optimisation — it is the only reaso
 
 ---
 
+## Setup
+
+Python 3.11+ and [uv](https://docs.astral.sh/uv/). Nothing else, and no API key to start.
+
+```bash
+git clone https://github.com/why-aditi/Understudy && cd Understudy
+uv sync
+```
+
+## Demo path
+
+Three steps, each needing strictly more setup than the last. **Step 1 needs no key, no browser
+and no network** — it is there so the central claim can be checked in under a minute.
+
+### 1. Deterministic replay, offline (no key, no browser, no network)
+
+```bash
+uv run cua replay --capability member.search --params '{"member_id": "12345"}' --offline
+```
+
+```json
+{
+  "status": "success",
+  "outputs": {"member_name": "Wilhelmina Okonkwo-Bright"},
+  "steps_executed": 3,
+  "locator_usage": {"enter-id": "role_name", "submit-search": "role_name", "read-name": "role_name"},
+  "drift_signals": []
+}
+```
+
+That replayed a capability recorded from a real browser against a recorded fixture
+(`fixtures/member.search.fixture.json`). Reading that file is the only I/O it performs — a test
+monkeypatches `socket.connect` and runs this exact path to prove it
+(`tests/test_offline.py::test_offline_replay_opens_no_socket`).
+
+The fixture is a **strict** tape. It stores the action recorded at each position and refuses a
+run that diverges: if the resolver picks a different control than it did at record time, you get
+a mismatch naming both actions rather than a green tick. A lenient fixture would pass every time
+and prove nothing.
+
+```bash
+uv run cua replay --capability member.search --params '{"member_id": "67890"}' --offline
+# error: this fixture was recorded with params {"member_id": "12345"}; you passed ...
+```
+
+Also keyless — the same capabilities as the typed tools an agent would be handed:
+
+```bash
+uv run cua catalog
+```
+
+### 2. Against the live app (needs Chromium, still no key)
+
+```bash
+uv run playwright install chromium
+```
+
+In a second terminal, start the target app and leave it running:
+
+```bash
+uv run python -m apps.harness 8099
+```
+
+Then:
+
+```bash
+# the same capability, now driving a real browser
+uv run cua replay --capability member.search --params '{"member_id": "12345"}'
+
+# the same artifact on a second tenant, through an overlay, with no re-recording
+uv run cua replay --capability member.search --params '{"member_id": "12345"}' --tenant tenant-b
+
+# replay it ten times and report which locator candidate actually fired
+uv run cua stability --capability member.search --params '{"member_id": "12345"}' -n 10
+
+# record your own offline fixture from a live run
+uv run cua replay --capability member.search --params '{"member_id": "12345"}' --record-fixture
+```
+
+### 3. With a model (needs a free key)
+
+```bash
+cp .env.example .env      # then paste a key into it
+```
+
+```bash
+# an LLM drives the app and the run is written to evidence/
+uv run cua discover --goal "Look up member 12345 and read their Savings balance" --target "http://127.0.0.1:8099/tenant-a/" --provider groq --headless
+
+# an LLM picks a capability by name and calls it with typed args
+uv run python scripts/agent_demo.py
+```
+
+## Keys
+
+Both providers are free and **neither asks for a card**. Either one alone is enough, and only
+step 3 needs one at all.
+
+| Variable | Where to get it | Used for | Limit that binds |
+|---|---|---|---|
+| `GEMINI_API_KEY` | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) | the vision-capable discovery loop | ~15 requests/minute |
+| `GROQ_API_KEY` | [console.groq.com/keys](https://console.groq.com/keys) | text-only passes and the agent demo | 8000 tokens/minute |
+
+Copy `.env.example` to `.env` and paste in whichever you have. `.env` is gitignored, and CI makes
+no model calls and needs no secrets. **Keep billing disabled on the Gemini project** — enabling it
+deletes the free tier, and every call then bills from the first token.
+
+Rate limits, not cost, are the binding constraint. Every call goes through a token-bucket limiter
+that backs off on 429 and tells the two flavours apart: per-minute exhaustion is retried, daily
+exhaustion raises immediately rather than retrying for hours.
+
+## The automation receives no privileged access
+
+Stated plainly because it is the first thing worth checking, and it holds on every surface:
+
+- **No privileged hooks.** No debug endpoint, no injected helper, no application cooperation of
+  any kind. The target app does not know it is being automated.
+- **No test IDs, injected or otherwise.** The harness emits a freshly generated element id on
+  every element on every render, and there is no `data-testid` anywhere in it. Nothing can be
+  located by id twice, by design.
+- **No special endpoints.** The automation drives the same routes and the same markup a human
+  operator sees, over the same HTTP — no query parameter or header that changes behaviour in its
+  favour. The `?fail=` flags inject failures; they never make anything easier.
+- **No DOM selectors.** Observation is the accessibility tree over CDP. Acting is role plus
+  accessible name, optionally scoped by a nearby anchor. A test fails if any file under
+  `surfaces/` so much as mentions `query_selector`, `evaluate`, `css=` or `xpath=`.
+
+The same holds for the Dolibarr instance under `apps/dolibarr/`: stock, unmodified, and seeded
+through its own web UI.
+
+---
+
 ## Status
 
-This is an in-progress take-home build. What is real, and what is not, stated plainly:
+What is real, and what is not, stated plainly:
 
 | Area | State |
 |---|---|
 | `surfaces/` — AX-tree observation, D3 pruning, role+name+`near` acting | **built**, exercised against a live browser |
+| offline replay — recorded fixtures, no browser, no network | **built**, a socket-blocked test proves it |
 | `policy/` — allowlist, risk classification, redaction filter | **built** |
 | `llm/` — provider protocol, Gemini, Groq, rate limiter | **built**, exercised against a live provider |
 | `discovery/` — the observe/decide/act loop, closed tool schema | **built**, completes a real multi-step goal |
@@ -27,70 +160,26 @@ This is an in-progress take-home build. What is real, and what is not, stated pl
 | `replay/` — candidate resolver, condition evaluator, deterministic engine | **built**, replays a real capability with no model |
 | `escalation/` — intervention, lock transfer, human capture, resume, console | **built**, exercised through a real frameset |
 | `session/` — registry owning browsers, `ControlLock` | **built**, in-process only |
-| `evidence/` — JSONL run log, screenshots, `result.json` | **built** |
 | `catalog/` — capabilities as callable typed tools | **built**, an LLM calls one end to end |
 | overlay resolution — one artifact across two tenants | **built**, replays on tenant-b with no re-recording |
 | drift detection — non-primary hits and new recoveries demote to draft | **built**, measured on a real fallback |
 | `surfaces/desktop.py`, `llm/ollama.py` | **interface only**, deliberately |
 | the descriptor format off the web | **proven, not built** — resolved against a live Windows AX tree, no `DesktopSurface` |
 
-So: a capability can be recorded from a live application, reviewed by a human, replayed
-deterministically with no model in the loop, specialised for a second tenant by a diff
-rather than a copy, watched for drift, handed to a human and back when it gets stuck, and
-handed to an agent as a typed callable tool.
+`REPORT.md` is the engineering report: what was built, where it is weak, and what was cut.
 
-The remaining gaps are the ones named under each heading below, not missing modules.
-
-Every CLI subcommand is implemented.
-
-462 tests, ruff and mypy strict clean, green on every push.
-
----
-
-## Quickstart
-
-```bash
-uv sync
-uv run playwright install chromium
-cp .env.example .env          # add GEMINI_API_KEY and/or GROQ_API_KEY (both free, no card)
-```
-
-Start the target app, then run the loop:
-
-```bash
-uv run python -m apps.harness 8099
-
-# 1. discover: an LLM drives the app and the run is written to evidence/
-uv run cua discover \
-  --goal "Look up member 12345 and read their Savings balance" \
-  --target "http://127.0.0.1:8099/tenant-a/" \
-  --provider groq --headless --allow-screenshots
-
-# 2. review: a model proposes outcomes; a human accepts, edits or rejects each one
-uv run cua review --capability member.search
-
-# 3. replay: deterministic, no model in the decision loop
-uv run cua replay --capability member.search --params '{"member_id": "12345"}'
-
-# 4. catalog: the same capability, as a typed tool an agent can call
-uv run cua catalog
-
-# 5. operator: the console that shows a stalled run and hands control back
-uv run cua operator
-```
+486 tests, ruff and mypy strict clean, green on every push.
 
 A discovery writes `evidence/discovery-<run_id>/run.jsonl` — one structured record per step,
 carrying the observation hash, the pruning ratio, the model's stated reasoning, the proposed
 action, the policy verdict, the action result and elapsed time. A replay writes
-`evidence/replay-<run_id>/` with both `run.jsonl` and `result.json`: how it went, and what
-the caller was told.
+`evidence/replay-<run_id>/` with both `run.jsonl` and `result.json`.
 
-`evidence/` is gitignored, because run output carries captured page state. So the runs quoted
-throughout this README are **reproducible from the commands above rather than checked in** —
-the run ids name real directories on the machine they were produced on, not paths in this
-repo. The single exception is `evidence/desktop-ax-proof.txt`, which contains no application
-state and is committed, as are `evidence/tenant-overlay-proof.txt` and
-`evidence/catalog-agent-demo.txt`.
+`evidence/` is gitignored, because run output carries captured page state. The runs quoted
+throughout this README are **reproducible from the commands above rather than checked in** — the
+run ids name real directories on the machine that produced them. The exceptions are
+`evidence/desktop-ax-proof.txt`, `evidence/tenant-overlay-proof.txt` and
+`evidence/catalog-agent-demo.txt`, which carry no page state and are committed.
 
 A clean discovery looks like this:
 
@@ -103,10 +192,9 @@ step 5: extract cell            near="Current balance" nth=1  -> "4,182.55"
 step 6: finish  outputs={"Current balance": "4,182.55"}
 ```
 
-Six steps, six model calls, no wrong turns. That is the real trace from
-`evidence/discovery-20260910T110803-8bd5f2/`, reproduced verbatim; the harness has since
-renamed two of those labels (`Member ID`, `Savings Balance`), which is exactly the drift a
-tenant overlay has to absorb.
+Six steps, six model calls, no wrong turns — the real trace from
+`evidence/discovery-20260910T110803-8bd5f2/`, reproduced verbatim. The harness has since renamed
+two of those labels, which is exactly the drift a tenant overlay has to absorb.
 
 And a replay returns a typed result rather than a string to parse:
 
@@ -118,29 +206,8 @@ $ cua replay --capability member.search --params '{"member_id": "99999"}'
   status: business_outcome   outcome: member_not_found
 ```
 
-The second is not an error. "No such member" is an answer the caller asked for, and telling
-it apart from "the automation broke" without parsing a message is the point of the artifact.
-
----
-
-## The automation gets no special treatment
-
-Stated plainly because it is the first thing worth checking:
-
-- **No privileged hooks.** No debug endpoint, no injected helper, no application cooperation
-  of any kind.
-- **No test ids.** The harness emits a freshly generated element id on every element on every
-  render, and there is not a `data-testid` anywhere in it. Nothing can be located by id twice.
-- **No special endpoints.** The automation drives the same routes and the same markup a human
-  operator sees, over the same HTTP.
-- **No DOM selectors.** Observation is the accessibility tree over CDP. Acting is role plus
-  accessible name, optionally scoped by a nearby anchor. There is a test that fails if any file
-  under `surfaces/` so much as mentions `query_selector`, `evaluate`, `css=` or `xpath=`.
-
-The target app is deliberately legacy-shaped: nested table layout, generated ids, a frameset
-screen, and query-param flags that inject `not_found`, `permission`, `timeout`, `modal` and
-`slow` failures on demand. A second tenant variant renames three labels, reorders a column
-and bumps its footer version — a tenant is a row in one config table, not a fork.
+The second is not an error. "No such member" is an answer the caller asked for, and telling it
+apart from "the automation broke" without parsing a message is the point of the artifact.
 
 ---
 
@@ -487,16 +554,14 @@ missing or malformed policy file is an error, never a permissive default.
 
 ## Free-tier notes
 
-- **Gemini** (Flash) runs the vision-capable discovery loop. Keep billing **disabled** on the
-  project — enabling it deletes the free tier, and every call bills from the first token.
-- **Groq** runs text-only passes. Its binding constraint is tokens, not requests: measured at
-  8000 TPM against 1000 requests/minute, so an accessibility tree exhausts the token budget
-  long before the request budget.
-- The rate limiter paces every call through a token bucket and backs off on 429. It
-  distinguishes the two flavours: per-minute exhaustion is retried, **daily** exhaustion raises
-  immediately rather than retrying for hours. The fixed 1/2/4/8 schedule is a floor — the
-  provider's own `retry-after` hint wins when it is longer, because a fixed 15 seconds can
-  never outlast a 60-second token window.
+The `Keys` section above covers where to get them. Two details that shaped the design:
+
+- **Groq's binding constraint is tokens, not requests** — measured at 8000 TPM against 1000
+  requests/minute, so an accessibility tree exhausts the token budget long before the request
+  budget. That is why observation is pruned rather than sent whole.
+- **The limiter's 1/2/4/8 backoff is a floor**, not a schedule. The provider's own `retry-after`
+  hint wins when it is longer, because a fixed 15 seconds can never outlast a 60-second token
+  window.
 
 ---
 
@@ -504,7 +569,8 @@ missing or malformed policy file is an error, never a permissive default.
 
 ```
 src/cua/
-  surfaces/   Surface protocol, WebSurface (AX via CDP), pruning, desktop stub
+  surfaces/   Surface protocol, WebSurface (AX via CDP), pruning, offline fixture
+              surface and recorder, desktop stub
   session/    SessionRegistry (owns browsers), ControlLock
   policy/     PolicyEngine chokepoint, risk rules, redaction filter
   llm/        LLMClient protocol, Gemini, Groq, Ollama, rate limiter
@@ -518,11 +584,10 @@ src/cua/
   evidence/   JSONL logger with redaction
 apps/harness/ fault-injection target app, tenant-a and tenant-b
 capabilities/ saved artifacts, tenant overlays, and the exported JSON Schema
+fixtures/     recorded tapes for offline replay, committed so a reviewer needs no key
 scripts/      one-shot proofs whose output is the deliverable, not library code
 evidence/     run output (gitignored, except the checked-in proofs)
 ```
-
-`REPORT.md` is the engineering report: what was built, what is weak, and what was cut.
 
 Design documents: `prd.md` (scope, schema, milestones) and `tech.md` (architecture, stack,
 free-tier strategy). `CLAUDE.md` is the standing context for work on this repo.
@@ -542,7 +607,9 @@ logging only, and no `print` in library code. An AST test also fails the build i
 log field shadows a `LogRecord` attribute — that one is invisible until a handler puts the
 logger at INFO, and then it is fatal.
 
-CI runs lint, types and tests on every push, over `src/`, `tests/`, `apps/` and `scripts/`.
+The offline replay path is covered end to end, including a test that blocks `socket.connect`
+and runs it anyway. CI runs lint, types and tests on every push, over `src/`, `tests/`,
+`apps/` and `scripts/`.
 It installs Chromium, because locator synthesis is verified against a real accessibility tree
 rather than a mock of one. It makes no model calls and needs no secrets — which is also why
 the two scripts under `scripts/` are checked but never executed there: one needs a Windows

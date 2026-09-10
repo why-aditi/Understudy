@@ -6,7 +6,7 @@ versioned capability artifact and replays it deterministically with no model in 
 **Citations.** Three evidence files are committed: `desktop-ax-proof.txt`,
 `tenant-overlay-proof.txt`, `catalog-agent-demo.txt`. The rest of `evidence/` is gitignored because
 run output carries captured page state; those runs are named by id below and reproduce from the
-README's commands. 462 tests, 23 files, ruff and mypy strict clean.
+README's commands. 486 tests, 24 files, ruff and mypy strict clean.
 
 ## Architecture
 
@@ -78,6 +78,14 @@ Replay walks the candidate chain in rank order and records which one fired
 
 A checkpoint that fails with no matching detector is a hard failure, never a silent continue.
 Screenshots are off unless `--allow-screenshots`; failure evidence is the AX snapshot.
+
+Because replay's decisions come from the artifact and the tree in front of it, the whole path
+runs with no browser and no network: `cua replay --offline` plays a recorded tape from
+`fixtures/`, and `tests/test_offline.py::test_offline_replay_opens_no_socket` monkeypatches
+`socket.connect` and runs that exact path. The tape is strict — it stores the action recorded at
+each position and fails if the resolver picks a different control than it did at record time, so
+an offline run is a regression test rather than a rehearsal. This is also what lets a reviewer
+with no API key exercise the deterministic half.
 
 `cua stability` replays N times and reports the pass rate plus which strategy fired per control.
 `deterministic` is stricter than the pass rate: ten passes resolving through different candidates
@@ -187,7 +195,6 @@ production system. On a paid tier with a zero-retention agreement the constraint
   action vocabulary for a second toolkit, and it would have cost the replay evidence.
 - **No real co-browsing console.** Out of scope per the brief. The transport is the expensive and
   least interesting part.
-- **No offline/fixture replay.** `cua replay --offline` raises rather than pretending.
 - **No queue, worker pool, or persistence beyond the filesystem.** Single process, JSON and JSONL
   on disk; scaling infrastructure is an explicit non-goal. **Ollama is interface-only** and never
   produced evidence.

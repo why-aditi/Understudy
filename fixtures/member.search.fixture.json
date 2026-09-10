@@ -1,0 +1,1791 @@
+{
+  "capability_id": "member.search",
+  "capability_version": "1.0.0",
+  "tenant_id": "tenant-a",
+  "params": {
+    "member_id": "12345"
+  },
+  "entry_url": "http://127.0.0.1:8099/tenant-a/",
+  "frames": [
+    {
+      "kind": "act",
+      "observation": null,
+      "action": {
+        "kind": "navigate",
+        "target": null,
+        "value": "http://127.0.0.1:8099/tenant-a/",
+        "timeout_ms": 10000
+      },
+      "result": {
+        "action": {
+          "kind": "navigate",
+          "target": null,
+          "value": "http://127.0.0.1:8099/tenant-a/",
+          "timeout_ms": 10000
+        },
+        "ok": true,
+        "url_after": "http://127.0.0.1:8099/tenant-a/",
+        "duration_ms": 54,
+        "extracted": null,
+        "error": null
+      }
+    },
+    {
+      "kind": "observe",
+      "observation": {
+        "url": "http://127.0.0.1:8099/tenant-a/",
+        "title": "Member search - Meridian Core Servicing",
+        "tree": {
+          "role": "RootWebArea",
+          "name": "Member search - Meridian Core Servicing",
+          "value": null,
+          "children": [
+            {
+              "role": "table",
+              "name": null,
+              "value": null,
+              "children": [
+                {
+                  "role": "row",
+                  "name": null,
+                  "value": null,
+                  "children": [
+                    {
+                      "role": "cell",
+                      "name": "Meridian Core Servicing",
+                      "value": null,
+                      "children": [
+                        {
+                          "role": "StaticText",
+                          "name": "Meridian Core Servicing",
+                          "value": null,
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "role": "row",
+                  "name": null,
+                  "value": null,
+                  "children": [
+                    {
+                      "role": "table",
+                      "name": null,
+                      "value": null,
+                      "children": [
+                        {
+                          "role": "row",
+                          "name": null,
+                          "value": null,
+                          "children": [
+                            {
+                              "role": "cell",
+                              "name": "Member search Daily reports",
+                              "value": null,
+                              "children": [
+                                {
+                                  "role": "table",
+                                  "name": null,
+                                  "value": null,
+                                  "children": [
+                                    {
+                                      "role": "row",
+                                      "name": null,
+                                      "value": null,
+                                      "children": [
+                                        {
+                                          "role": "cell",
+                                          "name": "Member search",
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "link",
+                                              "name": "Member search",
+                                              "value": null,
+                                              "children": [
+                                                {
+                                                  "role": "StaticText",
+                                                  "name": "Member search",
+                                                  "value": null,
+                                                  "children": []
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "role": "row",
+                                      "name": null,
+                                      "value": null,
+                                      "children": [
+                                        {
+                                          "role": "cell",
+                                          "name": "Daily reports",
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "link",
+                                              "name": "Daily reports",
+                                              "value": null,
+                                              "children": [
+                                                {
+                                                  "role": "StaticText",
+                                                  "name": "Daily reports",
+                                                  "value": null,
+                                                  "children": []
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "role": "cell",
+                              "name": "Member search",
+                              "value": null,
+                              "children": [
+                                {
+                                  "role": "heading",
+                                  "name": "Member search",
+                                  "value": null,
+                                  "children": [
+                                    {
+                                      "role": "StaticText",
+                                      "name": "Member search",
+                                      "value": null,
+                                      "children": []
+                                    }
+                                  ]
+                                },
+                                {
+                                  "role": "form",
+                                  "name": null,
+                                  "value": null,
+                                  "children": [
+                                    {
+                                      "role": "table",
+                                      "name": null,
+                                      "value": null,
+                                      "children": [
+                                        {
+                                          "role": "row",
+                                          "name": null,
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "cell",
+                                              "name": "Member ID",
+                                              "value": null,
+                                              "children": [
+                                                {
+                                                  "role": "StaticText",
+                                                  "name": "Member ID",
+                                                  "value": null,
+                                                  "children": []
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "role": "cell",
+                                              "name": "Member ID",
+                                              "value": null,
+                                              "children": [
+                                                {
+                                                  "role": "textbox",
+                                                  "name": "Member ID",
+                                                  "value": null,
+                                                  "children": []
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "role": "cell",
+                                              "name": "Search",
+                                              "value": null,
+                                              "children": [
+                                                {
+                                                  "role": "link",
+                                                  "name": "Search",
+                                                  "value": null,
+                                                  "children": [
+                                                    {
+                                                      "role": "StaticText",
+                                                      "name": "Search",
+                                                      "value": null,
+                                                      "children": []
+                                                    }
+                                                  ]
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "role": "row",
+                  "name": null,
+                  "value": null,
+                  "children": [
+                    {
+                      "role": "cell",
+                      "name": "Meridian Core Servicing — version 4.2.1",
+                      "value": null,
+                      "children": [
+                        {
+                          "role": "StaticText",
+                          "name": "Meridian Core Servicing — version 4.2.1",
+                          "value": null,
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "observation_hash": "d75204220224589f",
+        "pruning": {
+          "nodes_before": 51,
+          "nodes_after": 34,
+          "rows_collapsed": 0,
+          "values_truncated": 0
+        },
+        "captured_at": "2026-09-10T14:00:22.748292Z"
+      },
+      "action": null,
+      "result": null
+    },
+    {
+      "kind": "act",
+      "observation": null,
+      "action": {
+        "kind": "type",
+        "target": {
+          "role": "textbox",
+          "name": "Member ID",
+          "nth": 0,
+          "exact": true,
+          "near": null
+        },
+        "value": "12345",
+        "timeout_ms": 10000
+      },
+      "result": {
+        "action": {
+          "kind": "type",
+          "target": {
+            "role": "textbox",
+            "name": "Member ID",
+            "nth": 0,
+            "exact": true,
+            "near": null
+          },
+          "value": "12345",
+          "timeout_ms": 10000
+        },
+        "ok": true,
+        "url_after": "http://127.0.0.1:8099/tenant-a/",
+        "duration_ms": 32,
+        "extracted": null,
+        "error": null
+      }
+    },
+    {
+      "kind": "observe",
+      "observation": {
+        "url": "http://127.0.0.1:8099/tenant-a/",
+        "title": "Member search - Meridian Core Servicing",
+        "tree": {
+          "role": "RootWebArea",
+          "name": "Member search - Meridian Core Servicing",
+          "value": null,
+          "children": [
+            {
+              "role": "table",
+              "name": null,
+              "value": null,
+              "children": [
+                {
+                  "role": "row",
+                  "name": null,
+                  "value": null,
+                  "children": [
+                    {
+                      "role": "cell",
+                      "name": "Meridian Core Servicing",
+                      "value": null,
+                      "children": [
+                        {
+                          "role": "StaticText",
+                          "name": "Meridian Core Servicing",
+                          "value": null,
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "role": "row",
+                  "name": null,
+                  "value": null,
+                  "children": [
+                    {
+                      "role": "table",
+                      "name": null,
+                      "value": null,
+                      "children": [
+                        {
+                          "role": "row",
+                          "name": null,
+                          "value": null,
+                          "children": [
+                            {
+                              "role": "cell",
+                              "name": "Member search Daily reports",
+                              "value": null,
+                              "children": [
+                                {
+                                  "role": "table",
+                                  "name": null,
+                                  "value": null,
+                                  "children": [
+                                    {
+                                      "role": "row",
+                                      "name": null,
+                                      "value": null,
+                                      "children": [
+                                        {
+                                          "role": "cell",
+                                          "name": "Member search",
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "link",
+                                              "name": "Member search",
+                                              "value": null,
+                                              "children": [
+                                                {
+                                                  "role": "StaticText",
+                                                  "name": "Member search",
+                                                  "value": null,
+                                                  "children": []
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "role": "row",
+                                      "name": null,
+                                      "value": null,
+                                      "children": [
+                                        {
+                                          "role": "cell",
+                                          "name": "Daily reports",
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "link",
+                                              "name": "Daily reports",
+                                              "value": null,
+                                              "children": [
+                                                {
+                                                  "role": "StaticText",
+                                                  "name": "Daily reports",
+                                                  "value": null,
+                                                  "children": []
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "role": "cell",
+                              "name": "Member search",
+                              "value": null,
+                              "children": [
+                                {
+                                  "role": "heading",
+                                  "name": "Member search",
+                                  "value": null,
+                                  "children": [
+                                    {
+                                      "role": "StaticText",
+                                      "name": "Member search",
+                                      "value": null,
+                                      "children": []
+                                    }
+                                  ]
+                                },
+                                {
+                                  "role": "form",
+                                  "name": null,
+                                  "value": null,
+                                  "children": [
+                                    {
+                                      "role": "table",
+                                      "name": null,
+                                      "value": null,
+                                      "children": [
+                                        {
+                                          "role": "row",
+                                          "name": null,
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "cell",
+                                              "name": "Member ID",
+                                              "value": null,
+                                              "children": [
+                                                {
+                                                  "role": "StaticText",
+                                                  "name": "Member ID",
+                                                  "value": null,
+                                                  "children": []
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "role": "cell",
+                                              "name": "12345",
+                                              "value": null,
+                                              "children": [
+                                                {
+                                                  "role": "textbox",
+                                                  "name": "Member ID",
+                                                  "value": "12345",
+                                                  "children": [
+                                                    {
+                                                      "role": "StaticText",
+                                                      "name": "12345",
+                                                      "value": null,
+                                                      "children": []
+                                                    }
+                                                  ]
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "role": "cell",
+                                              "name": "Search",
+                                              "value": null,
+                                              "children": [
+                                                {
+                                                  "role": "link",
+                                                  "name": "Search",
+                                                  "value": null,
+                                                  "children": [
+                                                    {
+                                                      "role": "StaticText",
+                                                      "name": "Search",
+                                                      "value": null,
+                                                      "children": []
+                                                    }
+                                                  ]
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "role": "row",
+                  "name": null,
+                  "value": null,
+                  "children": [
+                    {
+                      "role": "cell",
+                      "name": "Meridian Core Servicing — version 4.2.1",
+                      "value": null,
+                      "children": [
+                        {
+                          "role": "StaticText",
+                          "name": "Meridian Core Servicing — version 4.2.1",
+                          "value": null,
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "observation_hash": "70ef41b56820e320",
+        "pruning": {
+          "nodes_before": 53,
+          "nodes_after": 35,
+          "rows_collapsed": 0,
+          "values_truncated": 0
+        },
+        "captured_at": "2026-09-10T14:00:22.790205Z"
+      },
+      "action": null,
+      "result": null
+    },
+    {
+      "kind": "observe",
+      "observation": {
+        "url": "http://127.0.0.1:8099/tenant-a/",
+        "title": "Member search - Meridian Core Servicing",
+        "tree": {
+          "role": "RootWebArea",
+          "name": "Member search - Meridian Core Servicing",
+          "value": null,
+          "children": [
+            {
+              "role": "table",
+              "name": null,
+              "value": null,
+              "children": [
+                {
+                  "role": "row",
+                  "name": null,
+                  "value": null,
+                  "children": [
+                    {
+                      "role": "cell",
+                      "name": "Meridian Core Servicing",
+                      "value": null,
+                      "children": [
+                        {
+                          "role": "StaticText",
+                          "name": "Meridian Core Servicing",
+                          "value": null,
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "role": "row",
+                  "name": null,
+                  "value": null,
+                  "children": [
+                    {
+                      "role": "table",
+                      "name": null,
+                      "value": null,
+                      "children": [
+                        {
+                          "role": "row",
+                          "name": null,
+                          "value": null,
+                          "children": [
+                            {
+                              "role": "cell",
+                              "name": "Member search Daily reports",
+                              "value": null,
+                              "children": [
+                                {
+                                  "role": "table",
+                                  "name": null,
+                                  "value": null,
+                                  "children": [
+                                    {
+                                      "role": "row",
+                                      "name": null,
+                                      "value": null,
+                                      "children": [
+                                        {
+                                          "role": "cell",
+                                          "name": "Member search",
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "link",
+                                              "name": "Member search",
+                                              "value": null,
+                                              "children": [
+                                                {
+                                                  "role": "StaticText",
+                                                  "name": "Member search",
+                                                  "value": null,
+                                                  "children": []
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "role": "row",
+                                      "name": null,
+                                      "value": null,
+                                      "children": [
+                                        {
+                                          "role": "cell",
+                                          "name": "Daily reports",
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "link",
+                                              "name": "Daily reports",
+                                              "value": null,
+                                              "children": [
+                                                {
+                                                  "role": "StaticText",
+                                                  "name": "Daily reports",
+                                                  "value": null,
+                                                  "children": []
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "role": "cell",
+                              "name": "Member search",
+                              "value": null,
+                              "children": [
+                                {
+                                  "role": "heading",
+                                  "name": "Member search",
+                                  "value": null,
+                                  "children": [
+                                    {
+                                      "role": "StaticText",
+                                      "name": "Member search",
+                                      "value": null,
+                                      "children": []
+                                    }
+                                  ]
+                                },
+                                {
+                                  "role": "form",
+                                  "name": null,
+                                  "value": null,
+                                  "children": [
+                                    {
+                                      "role": "table",
+                                      "name": null,
+                                      "value": null,
+                                      "children": [
+                                        {
+                                          "role": "row",
+                                          "name": null,
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "cell",
+                                              "name": "Member ID",
+                                              "value": null,
+                                              "children": [
+                                                {
+                                                  "role": "StaticText",
+                                                  "name": "Member ID",
+                                                  "value": null,
+                                                  "children": []
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "role": "cell",
+                                              "name": "12345",
+                                              "value": null,
+                                              "children": [
+                                                {
+                                                  "role": "textbox",
+                                                  "name": "Member ID",
+                                                  "value": "12345",
+                                                  "children": [
+                                                    {
+                                                      "role": "StaticText",
+                                                      "name": "12345",
+                                                      "value": null,
+                                                      "children": []
+                                                    }
+                                                  ]
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "role": "cell",
+                                              "name": "Search",
+                                              "value": null,
+                                              "children": [
+                                                {
+                                                  "role": "link",
+                                                  "name": "Search",
+                                                  "value": null,
+                                                  "children": [
+                                                    {
+                                                      "role": "StaticText",
+                                                      "name": "Search",
+                                                      "value": null,
+                                                      "children": []
+                                                    }
+                                                  ]
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "role": "row",
+                  "name": null,
+                  "value": null,
+                  "children": [
+                    {
+                      "role": "cell",
+                      "name": "Meridian Core Servicing — version 4.2.1",
+                      "value": null,
+                      "children": [
+                        {
+                          "role": "StaticText",
+                          "name": "Meridian Core Servicing — version 4.2.1",
+                          "value": null,
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "observation_hash": "70ef41b56820e320",
+        "pruning": {
+          "nodes_before": 53,
+          "nodes_after": 35,
+          "rows_collapsed": 0,
+          "values_truncated": 0
+        },
+        "captured_at": "2026-09-10T14:00:22.804123Z"
+      },
+      "action": null,
+      "result": null
+    },
+    {
+      "kind": "act",
+      "observation": null,
+      "action": {
+        "kind": "click",
+        "target": {
+          "role": "link",
+          "name": "Search",
+          "nth": 0,
+          "exact": true,
+          "near": null
+        },
+        "value": null,
+        "timeout_ms": 10000
+      },
+      "result": {
+        "action": {
+          "kind": "click",
+          "target": {
+            "role": "link",
+            "name": "Search",
+            "nth": 0,
+            "exact": true,
+            "near": null
+          },
+          "value": null,
+          "timeout_ms": 10000
+        },
+        "ok": true,
+        "url_after": "http://127.0.0.1:8099/tenant-a/members?q=12345",
+        "duration_ms": 231,
+        "extracted": null,
+        "error": null
+      }
+    },
+    {
+      "kind": "observe",
+      "observation": {
+        "url": "http://127.0.0.1:8099/tenant-a/members?q=12345",
+        "title": "Search results - Meridian Core Servicing",
+        "tree": {
+          "role": "RootWebArea",
+          "name": "Search results - Meridian Core Servicing",
+          "value": null,
+          "children": [
+            {
+              "role": "table",
+              "name": null,
+              "value": null,
+              "children": [
+                {
+                  "role": "row",
+                  "name": null,
+                  "value": null,
+                  "children": [
+                    {
+                      "role": "cell",
+                      "name": "Meridian Core Servicing",
+                      "value": null,
+                      "children": [
+                        {
+                          "role": "StaticText",
+                          "name": "Meridian Core Servicing",
+                          "value": null,
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "role": "row",
+                  "name": null,
+                  "value": null,
+                  "children": [
+                    {
+                      "role": "table",
+                      "name": null,
+                      "value": null,
+                      "children": [
+                        {
+                          "role": "row",
+                          "name": null,
+                          "value": null,
+                          "children": [
+                            {
+                              "role": "cell",
+                              "name": "Member search Daily reports",
+                              "value": null,
+                              "children": [
+                                {
+                                  "role": "table",
+                                  "name": null,
+                                  "value": null,
+                                  "children": [
+                                    {
+                                      "role": "row",
+                                      "name": null,
+                                      "value": null,
+                                      "children": [
+                                        {
+                                          "role": "cell",
+                                          "name": "Member search",
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "link",
+                                              "name": "Member search",
+                                              "value": null,
+                                              "children": [
+                                                {
+                                                  "role": "StaticText",
+                                                  "name": "Member search",
+                                                  "value": null,
+                                                  "children": []
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "role": "row",
+                                      "name": null,
+                                      "value": null,
+                                      "children": [
+                                        {
+                                          "role": "cell",
+                                          "name": "Daily reports",
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "link",
+                                              "name": "Daily reports",
+                                              "value": null,
+                                              "children": [
+                                                {
+                                                  "role": "StaticText",
+                                                  "name": "Daily reports",
+                                                  "value": null,
+                                                  "children": []
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "role": "cell",
+                              "name": "Search results",
+                              "value": null,
+                              "children": [
+                                {
+                                  "role": "heading",
+                                  "name": "Search results",
+                                  "value": null,
+                                  "children": [
+                                    {
+                                      "role": "StaticText",
+                                      "name": "Search results",
+                                      "value": null,
+                                      "children": []
+                                    }
+                                  ]
+                                },
+                                {
+                                  "role": "table",
+                                  "name": null,
+                                  "value": null,
+                                  "children": [
+                                    {
+                                      "role": "row",
+                                      "name": null,
+                                      "value": null,
+                                      "children": [
+                                        {
+                                          "role": "columnheader",
+                                          "name": "Member",
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "StaticText",
+                                              "name": "Member",
+                                              "value": null,
+                                              "children": []
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "role": "columnheader",
+                                          "name": "Name",
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "StaticText",
+                                              "name": "Name",
+                                              "value": null,
+                                              "children": []
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "role": "columnheader",
+                                          "name": "Status",
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "StaticText",
+                                              "name": "Status",
+                                              "value": null,
+                                              "children": []
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "role": "row",
+                                      "name": null,
+                                      "value": null,
+                                      "children": [
+                                        {
+                                          "role": "cell",
+                                          "name": "12345",
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "StaticText",
+                                              "name": "12345",
+                                              "value": null,
+                                              "children": []
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "role": "cell",
+                                          "name": "Wilhelmina Okonkwo-Bright",
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "StaticText",
+                                              "name": "Wilhelmina Okonkwo-Bright",
+                                              "value": null,
+                                              "children": []
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "role": "cell",
+                                          "name": "Active",
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "StaticText",
+                                              "name": "Active",
+                                              "value": null,
+                                              "children": []
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "role": "cell",
+                                          "name": "Open",
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "link",
+                                              "name": "Open",
+                                              "value": null,
+                                              "children": [
+                                                {
+                                                  "role": "StaticText",
+                                                  "name": "Open",
+                                                  "value": null,
+                                                  "children": []
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "role": "row",
+                  "name": null,
+                  "value": null,
+                  "children": [
+                    {
+                      "role": "cell",
+                      "name": "Meridian Core Servicing — version 4.2.1",
+                      "value": null,
+                      "children": [
+                        {
+                          "role": "StaticText",
+                          "name": "Meridian Core Servicing — version 4.2.1",
+                          "value": null,
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "observation_hash": "db607b820f9c0f9f",
+        "pruning": {
+          "nodes_before": 65,
+          "nodes_after": 42,
+          "rows_collapsed": 0,
+          "values_truncated": 0
+        },
+        "captured_at": "2026-09-10T14:00:23.067803Z"
+      },
+      "action": null,
+      "result": null
+    },
+    {
+      "kind": "observe",
+      "observation": {
+        "url": "http://127.0.0.1:8099/tenant-a/members?q=12345",
+        "title": "Search results - Meridian Core Servicing",
+        "tree": {
+          "role": "RootWebArea",
+          "name": "Search results - Meridian Core Servicing",
+          "value": null,
+          "children": [
+            {
+              "role": "table",
+              "name": null,
+              "value": null,
+              "children": [
+                {
+                  "role": "row",
+                  "name": null,
+                  "value": null,
+                  "children": [
+                    {
+                      "role": "cell",
+                      "name": "Meridian Core Servicing",
+                      "value": null,
+                      "children": [
+                        {
+                          "role": "StaticText",
+                          "name": "Meridian Core Servicing",
+                          "value": null,
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "role": "row",
+                  "name": null,
+                  "value": null,
+                  "children": [
+                    {
+                      "role": "table",
+                      "name": null,
+                      "value": null,
+                      "children": [
+                        {
+                          "role": "row",
+                          "name": null,
+                          "value": null,
+                          "children": [
+                            {
+                              "role": "cell",
+                              "name": "Member search Daily reports",
+                              "value": null,
+                              "children": [
+                                {
+                                  "role": "table",
+                                  "name": null,
+                                  "value": null,
+                                  "children": [
+                                    {
+                                      "role": "row",
+                                      "name": null,
+                                      "value": null,
+                                      "children": [
+                                        {
+                                          "role": "cell",
+                                          "name": "Member search",
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "link",
+                                              "name": "Member search",
+                                              "value": null,
+                                              "children": [
+                                                {
+                                                  "role": "StaticText",
+                                                  "name": "Member search",
+                                                  "value": null,
+                                                  "children": []
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "role": "row",
+                                      "name": null,
+                                      "value": null,
+                                      "children": [
+                                        {
+                                          "role": "cell",
+                                          "name": "Daily reports",
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "link",
+                                              "name": "Daily reports",
+                                              "value": null,
+                                              "children": [
+                                                {
+                                                  "role": "StaticText",
+                                                  "name": "Daily reports",
+                                                  "value": null,
+                                                  "children": []
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "role": "cell",
+                              "name": "Search results",
+                              "value": null,
+                              "children": [
+                                {
+                                  "role": "heading",
+                                  "name": "Search results",
+                                  "value": null,
+                                  "children": [
+                                    {
+                                      "role": "StaticText",
+                                      "name": "Search results",
+                                      "value": null,
+                                      "children": []
+                                    }
+                                  ]
+                                },
+                                {
+                                  "role": "table",
+                                  "name": null,
+                                  "value": null,
+                                  "children": [
+                                    {
+                                      "role": "row",
+                                      "name": null,
+                                      "value": null,
+                                      "children": [
+                                        {
+                                          "role": "columnheader",
+                                          "name": "Member",
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "StaticText",
+                                              "name": "Member",
+                                              "value": null,
+                                              "children": []
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "role": "columnheader",
+                                          "name": "Name",
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "StaticText",
+                                              "name": "Name",
+                                              "value": null,
+                                              "children": []
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "role": "columnheader",
+                                          "name": "Status",
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "StaticText",
+                                              "name": "Status",
+                                              "value": null,
+                                              "children": []
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "role": "row",
+                                      "name": null,
+                                      "value": null,
+                                      "children": [
+                                        {
+                                          "role": "cell",
+                                          "name": "12345",
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "StaticText",
+                                              "name": "12345",
+                                              "value": null,
+                                              "children": []
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "role": "cell",
+                                          "name": "Wilhelmina Okonkwo-Bright",
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "StaticText",
+                                              "name": "Wilhelmina Okonkwo-Bright",
+                                              "value": null,
+                                              "children": []
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "role": "cell",
+                                          "name": "Active",
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "StaticText",
+                                              "name": "Active",
+                                              "value": null,
+                                              "children": []
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "role": "cell",
+                                          "name": "Open",
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "link",
+                                              "name": "Open",
+                                              "value": null,
+                                              "children": [
+                                                {
+                                                  "role": "StaticText",
+                                                  "name": "Open",
+                                                  "value": null,
+                                                  "children": []
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "role": "row",
+                  "name": null,
+                  "value": null,
+                  "children": [
+                    {
+                      "role": "cell",
+                      "name": "Meridian Core Servicing — version 4.2.1",
+                      "value": null,
+                      "children": [
+                        {
+                          "role": "StaticText",
+                          "name": "Meridian Core Servicing — version 4.2.1",
+                          "value": null,
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "observation_hash": "db607b820f9c0f9f",
+        "pruning": {
+          "nodes_before": 65,
+          "nodes_after": 42,
+          "rows_collapsed": 0,
+          "values_truncated": 0
+        },
+        "captured_at": "2026-09-10T14:00:23.078335Z"
+      },
+      "action": null,
+      "result": null
+    },
+    {
+      "kind": "act",
+      "observation": null,
+      "action": {
+        "kind": "extract",
+        "target": {
+          "role": "cell",
+          "name": "Wilhelmina Okonkwo-Bright",
+          "nth": 0,
+          "exact": true,
+          "near": null
+        },
+        "value": null,
+        "timeout_ms": 10000
+      },
+      "result": {
+        "action": {
+          "kind": "extract",
+          "target": {
+            "role": "cell",
+            "name": "Wilhelmina Okonkwo-Bright",
+            "nth": 0,
+            "exact": true,
+            "near": null
+          },
+          "value": null,
+          "timeout_ms": 10000
+        },
+        "ok": true,
+        "url_after": "http://127.0.0.1:8099/tenant-a/members?q=12345",
+        "duration_ms": 23,
+        "extracted": "Wilhelmina Okonkwo-Bright",
+        "error": null
+      }
+    },
+    {
+      "kind": "observe",
+      "observation": {
+        "url": "http://127.0.0.1:8099/tenant-a/members?q=12345",
+        "title": "Search results - Meridian Core Servicing",
+        "tree": {
+          "role": "RootWebArea",
+          "name": "Search results - Meridian Core Servicing",
+          "value": null,
+          "children": [
+            {
+              "role": "table",
+              "name": null,
+              "value": null,
+              "children": [
+                {
+                  "role": "row",
+                  "name": null,
+                  "value": null,
+                  "children": [
+                    {
+                      "role": "cell",
+                      "name": "Meridian Core Servicing",
+                      "value": null,
+                      "children": [
+                        {
+                          "role": "StaticText",
+                          "name": "Meridian Core Servicing",
+                          "value": null,
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "role": "row",
+                  "name": null,
+                  "value": null,
+                  "children": [
+                    {
+                      "role": "table",
+                      "name": null,
+                      "value": null,
+                      "children": [
+                        {
+                          "role": "row",
+                          "name": null,
+                          "value": null,
+                          "children": [
+                            {
+                              "role": "cell",
+                              "name": "Member search Daily reports",
+                              "value": null,
+                              "children": [
+                                {
+                                  "role": "table",
+                                  "name": null,
+                                  "value": null,
+                                  "children": [
+                                    {
+                                      "role": "row",
+                                      "name": null,
+                                      "value": null,
+                                      "children": [
+                                        {
+                                          "role": "cell",
+                                          "name": "Member search",
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "link",
+                                              "name": "Member search",
+                                              "value": null,
+                                              "children": [
+                                                {
+                                                  "role": "StaticText",
+                                                  "name": "Member search",
+                                                  "value": null,
+                                                  "children": []
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "role": "row",
+                                      "name": null,
+                                      "value": null,
+                                      "children": [
+                                        {
+                                          "role": "cell",
+                                          "name": "Daily reports",
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "link",
+                                              "name": "Daily reports",
+                                              "value": null,
+                                              "children": [
+                                                {
+                                                  "role": "StaticText",
+                                                  "name": "Daily reports",
+                                                  "value": null,
+                                                  "children": []
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "role": "cell",
+                              "name": "Search results",
+                              "value": null,
+                              "children": [
+                                {
+                                  "role": "heading",
+                                  "name": "Search results",
+                                  "value": null,
+                                  "children": [
+                                    {
+                                      "role": "StaticText",
+                                      "name": "Search results",
+                                      "value": null,
+                                      "children": []
+                                    }
+                                  ]
+                                },
+                                {
+                                  "role": "table",
+                                  "name": null,
+                                  "value": null,
+                                  "children": [
+                                    {
+                                      "role": "row",
+                                      "name": null,
+                                      "value": null,
+                                      "children": [
+                                        {
+                                          "role": "columnheader",
+                                          "name": "Member",
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "StaticText",
+                                              "name": "Member",
+                                              "value": null,
+                                              "children": []
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "role": "columnheader",
+                                          "name": "Name",
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "StaticText",
+                                              "name": "Name",
+                                              "value": null,
+                                              "children": []
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "role": "columnheader",
+                                          "name": "Status",
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "StaticText",
+                                              "name": "Status",
+                                              "value": null,
+                                              "children": []
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "role": "row",
+                                      "name": null,
+                                      "value": null,
+                                      "children": [
+                                        {
+                                          "role": "cell",
+                                          "name": "12345",
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "StaticText",
+                                              "name": "12345",
+                                              "value": null,
+                                              "children": []
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "role": "cell",
+                                          "name": "Wilhelmina Okonkwo-Bright",
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "StaticText",
+                                              "name": "Wilhelmina Okonkwo-Bright",
+                                              "value": null,
+                                              "children": []
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "role": "cell",
+                                          "name": "Active",
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "StaticText",
+                                              "name": "Active",
+                                              "value": null,
+                                              "children": []
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "role": "cell",
+                                          "name": "Open",
+                                          "value": null,
+                                          "children": [
+                                            {
+                                              "role": "link",
+                                              "name": "Open",
+                                              "value": null,
+                                              "children": [
+                                                {
+                                                  "role": "StaticText",
+                                                  "name": "Open",
+                                                  "value": null,
+                                                  "children": []
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "role": "row",
+                  "name": null,
+                  "value": null,
+                  "children": [
+                    {
+                      "role": "cell",
+                      "name": "Meridian Core Servicing — version 4.2.1",
+                      "value": null,
+                      "children": [
+                        {
+                          "role": "StaticText",
+                          "name": "Meridian Core Servicing — version 4.2.1",
+                          "value": null,
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "observation_hash": "db607b820f9c0f9f",
+        "pruning": {
+          "nodes_before": 65,
+          "nodes_after": 42,
+          "rows_collapsed": 0,
+          "values_truncated": 0
+        },
+        "captured_at": "2026-09-10T14:00:23.115538Z"
+      },
+      "action": null,
+      "result": null
+    }
+  ]
+}
