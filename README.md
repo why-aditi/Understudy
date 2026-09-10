@@ -575,7 +575,9 @@ installed only on the top document would record nothing at all while appearing t
 Typed values never cross the boundary: the page-side listener reports the *length* of an
 input and nothing else, so there is no redaction step to forget.
 
-`cua operator` serves a console showing the pending request and a Resume button. The console
+`uv run python scripts/handoff_demo.py` runs the whole transfer against the harness and writes
+[`evidence/handoff-live-demo/`](evidence/handoff-live-demo). `cua operator` serves a console
+showing the pending request and a Resume button. The console
 is the mocked part and says so at the top of its own source. It never touches the lock — it
 writes a signal, and the run decides when to take control back, then **re-verifies the
 step's checkpoint** before continuing, because a human fixing a stuck run may leave the
@@ -645,7 +647,8 @@ apps/harness/ fault-injection target app, tenant-a and tenant-b, and one screen 
               input is genuinely secret
 capabilities/ saved artifacts, tenant overlays, and the exported JSON Schema
 fixtures/     recorded tapes for offline replay, committed so a reviewer needs no key
-scripts/      one-shot proofs whose output is the deliverable, not library code
+scripts/      one-shot proofs whose output is the deliverable, not library code:
+              the desktop AX proof, the agent demo, the escalation handoff
 evidence/     run output (gitignored, except the checked-in proofs)
 ```
 

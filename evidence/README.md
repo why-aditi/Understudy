@@ -54,10 +54,16 @@ checkpoint on resume.
 | `intervention-open-savings.ax.json` | the accessibility snapshot the operator console showed |
 | `run.jsonl` | `escalated`, `intervention_written`, `lock_released`, `human_capture_started`, `human_action`, `resumed`, `resume_reverified` — in that order |
 
-The captured action records `frame: "accounts"`. That is the point: capture is injected per
-frame and re-injected on every navigation, and a listener on the top document alone would have
-recorded nothing while appearing to work. Typed values never cross the boundary — the page-side
-listener reports `value_length` and nothing else.
+Two actions were captured: the click, and the navigation it caused. The click records
+`frame: "accounts"`, and that is the point — capture is injected per frame and re-injected on
+every navigation, and a listener on the top document alone would have recorded nothing while
+appearing to work. Typed values never cross the boundary: the page-side listener reports
+`value_length` and nothing else.
+
+Regenerate it with `uv run python scripts/handoff_demo.py` against the running harness. The
+human's clicks are driven through Playwright, since nobody is at the keyboard — but they are
+dispatched to the page and seen by the listener like anyone's. The stand-in is the mouse, not
+the mechanism.
 
 ## Stability
 

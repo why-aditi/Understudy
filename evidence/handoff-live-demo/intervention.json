@@ -3,29 +3,38 @@
   "reason": "stuck",
   "step_id": "open-savings",
   "message": "The detail screen is a frameset; no candidate resolved.",
-  "requested_at": "2026-09-10T10:17:25.472796Z",
+  "requested_at": "2026-09-10T16:54:00.650862Z",
   "capability_id": "member.savings_balance.read",
-  "capability_version": null,
-  "goal": null,
+  "capability_version": "1.0.0",
+  "goal": "Open the member's savings sub-account.",
   "url": "http://127.0.0.1:8099/tenant-a/members/12345",
   "ax_snapshot_path": "evidence\\handoff-live-demo\\intervention-open-savings.ax.json",
   "screenshot_ref": null,
   "lock": {
     "session_id": "handoff-live-demo",
     "holder": "automation",
-    "acquired_at": "2026-09-10T10:17:25.284182Z",
+    "acquired_at": "2026-09-10T16:54:00.598359Z",
     "acquired_by": "handoff-live-demo"
   },
-  "resolved_at": "2026-09-10T10:17:25.692502Z",
+  "resolved_at": "2026-09-10T16:54:01.184063Z",
   "resumed_by": "operator",
   "human_actions": [
     {
       "kind": "click",
-      "at": "2026-09-10T10:17:25.642476Z",
+      "at": "2026-09-10T16:54:00.767707Z",
       "frame": "accounts",
       "role": "link",
       "name": "Open",
       "url": null,
+      "value_length": null
+    },
+    {
+      "kind": "navigate",
+      "at": "2026-09-10T16:54:00.780731Z",
+      "frame": "http://127.0.0.1:8099/tenant-a/members/12345/accounts/SAV-88120",
+      "role": null,
+      "name": null,
+      "url": "http://127.0.0.1:8099/tenant-a/members/12345/accounts/SAV-88120",
       "value_length": null
     }
   ]

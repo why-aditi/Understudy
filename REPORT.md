@@ -173,11 +173,17 @@ record of why.
 `evidence/handoff-live-demo/` is a real transfer: stopped at `open-savings`, `reason: stuck`, "The
 detail screen is a frameset; no candidate resolved." The run log carries `escalated`,
 `intervention_written`, `lock_released`, `human_capture_started`, `human_action`, `resumed`,
-`resume_reverified`. One human action was captured:
+`resume_reverified`. Two human actions were captured — what they did and where it took them:
 
 ```json
-{"kind": "click", "frame": "accounts", "role": "link", "name": "Open", "value_length": null}
+{"kind": "click",    "frame": "accounts", "role": "link", "name": "Open", "value_length": null}
+{"kind": "navigate", "frame": ".../accounts/SAV-88120", "url": ".../accounts/SAV-88120"}
 ```
+
+Reproduce it with `uv run python scripts/handoff_demo.py`. The human's clicks are driven through
+Playwright because there is nobody at the keyboard, but they are dispatched to the page and
+observed by the capture listener exactly as anyone's would be — the stand-in is the mouse, not
+the mechanism.
 
 The frame name is the point. Capture is injected per frame and re-injected on every navigation; a
 listener on the top document alone would record nothing while appearing to work, which is what a
