@@ -522,6 +522,8 @@ scripts/      one-shot proofs whose output is the deliverable, not library code
 evidence/     run output (gitignored, except the checked-in proofs)
 ```
 
+`REPORT.md` is the engineering report: what was built, what is weak, and what was cut.
+
 Design documents: `prd.md` (scope, schema, milestones) and `tech.md` (architecture, stack,
 free-tier strategy). `CLAUDE.md` is the standing context for work on this repo.
 
