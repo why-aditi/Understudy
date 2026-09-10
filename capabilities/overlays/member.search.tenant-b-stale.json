@@ -1,0 +1,49 @@
+{
+  "base_capability_id": "member.search",
+  "base_version": "1.0.0",
+  "tenant_id": "tenant-b-stale",
+  "verified_against": "0.9.0",
+  "overrides": [
+    {
+      "step_id": "<capability>",
+      "field_path": "entry.url",
+      "value": "http://127.0.0.1:8099/tenant-b/"
+    },
+    {
+      "step_id": "enter-id",
+      "field_path": "target.name",
+      "value": "Account Holder ID"
+    },
+    {
+      "step_id": "enter-id",
+      "field_path": "target.candidates.0.params.name",
+      "value": "Account Holder ID"
+    },
+    {
+      "step_id": "enter-id",
+      "field_path": "target.candidates.4.params.anchor_text",
+      "value": "Account Holder ID"
+    },
+    {
+      "step_id": "submit-search",
+      "field_path": "target.candidates.1.params.anchor_text",
+      "value": "Account Holder ID"
+    },
+    {
+      "step_id": "submit-search",
+      "field_path": "target.candidates.2.params.anchor_text",
+      "value": "Account Holder ID"
+    },
+    {
+      "step_id": "submit-search",
+      "field_path": "target.candidates.3.params.anchor_text",
+      "value": "Account Holder ID"
+    },
+    {
+      "step_id": "submit-search",
+      "field_path": "target.candidates.4.params.anchor_text",
+      "value": "Account Holder ID"
+    }
+  ],
+  "added_outcomes": []
+}

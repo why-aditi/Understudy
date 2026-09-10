@@ -161,6 +161,17 @@
       "title": "Locator Usage",
       "type": "object"
     },
+    "recoveries": {
+      "additionalProperties": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "description": "Per step, the recoverable outcomes that fired and were recovered from. Recorded structurally rather than only as a log line, because drift detection has to ask whether a step needed a recovery it never needed before.",
+      "title": "Recoveries",
+      "type": "object"
+    },
     "drift_signals": {
       "description": "Signals that the surface has moved since this capability was recorded.",
       "items": {

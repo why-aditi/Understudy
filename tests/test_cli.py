@@ -86,3 +86,45 @@ def test_an_unknown_parameter_is_refused_before_a_browser_is_launched() -> None:
     )
     assert result.exit_code == 2
     assert "unknown parameter(s) ['wrong']" in result.output
+
+
+def test_an_unknown_tenant_overlay_is_a_clean_error() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "replay",
+            "--capability",
+            "member.search",
+            "--params",
+            '{"member_id": "12345"}',
+            "--tenant",
+            "tenant-nowhere",
+        ],
+    )
+    assert result.exit_code == 2
+    assert "no overlay for" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_a_stale_overlay_is_refused_before_a_browser_is_launched() -> None:
+    """The committed stale fixture: the refusal names the overlay, not just 'state=draft'.
+
+    Letting the engine's precondition catch this would report `state=draft` after paying
+    for a browser, which tells the caller nothing about *why* it was demoted.
+    """
+    result = runner.invoke(
+        app,
+        [
+            "replay",
+            "--capability",
+            "member.search",
+            "--params",
+            '{"member_id": "12345"}',
+            "--tenant",
+            "tenant-b-stale",
+        ],
+    )
+    assert result.exit_code == 2
+    assert "overlay needs review" in result.output
+    assert "verified against 0.9.0" in result.output
+    assert "--attended" in result.output, "the way forward is named, not just the refusal"

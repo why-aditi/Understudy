@@ -556,6 +556,14 @@
           "title": "Locator Usage",
           "type": "object"
         },
+        "recoveries": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "Per step, how many runs needed a recovery. This is the baseline that makes 'a recoverable outcome that never fired before' answerable rather than guessed.",
+          "title": "Recoveries",
+          "type": "object"
+        },
         "drift_signals": {
           "description": "Observations suggesting the surface has moved: a fallback candidate firing, or a recoverable outcome triggering on a step that never needed it before.",
           "items": {

@@ -1,0 +1,124 @@
+One capability, two tenants, no re-recording
+==============================================================================
+
+capability : member.search v1.0.0, recorded against tenant-a by a Gemini discovery run
+overlay    : capabilities/overlays/member.search.tenant-b.json (8 overrides, 0 new outcomes)
+target     : apps/harness, the same app served under a different config
+
+tenant-b renames "Member ID" to "Account Holder ID", rebrands, and bumps its footer
+version. The capability was never re-recorded against it. The only new artifact is the
+overlay, and every override in it is a field path and a value.
+
+
+1. THE BASE, ON THE TENANT IT WAS RECORDED AGAINST
+------------------------------------------------------------------------------
+  $ cua replay --capability member.search --params '{"member_id": "12345"}'
+
+  status          success
+  outputs         {"member_name": "Wilhelmina Okonkwo-Bright"}
+  locator_usage   enter-id=role_name  submit-search=role_name  read-name=role_name
+  drift_signals   []
+
+
+2. THE SAME ARTIFACT, ON TENANT-B, THROUGH THE OVERLAY ALONE
+------------------------------------------------------------------------------
+  $ cua replay --capability member.search --params '{"member_id": "12345"}' \
+      --tenant tenant-b
+
+  status          success
+  outputs         {"member_name": "Wilhelmina Okonkwo-Bright"}
+  locator_usage   enter-id=role_name  submit-search=role_name  read-name=role_name
+  drift_signals   []
+
+Identical result, identical strategies. The overlay moved the entry url and renamed one
+control; nothing else about the flow changed, because nothing else needed to.
+
+  $ cua stability --capability member.search --tenant tenant-b -n 10
+
+    enter-id        primary=role_name    role_name 10x
+    read-name       primary=role_name    role_name 10x
+    submit-search   primary=role_name    role_name 10x
+
+    no drift: 10 run(s), every control resolved through its primary
+
+
+3. THE CONTROL: AN OVERLAY THAT MOVES THE ADDRESS BUT NOT THE LABEL
+------------------------------------------------------------------------------
+capabilities/overlays/member.search.tenant-b-address-only.json overrides only entry.url,
+so the capability arrives at tenant-b still looking for a textbox named "Member ID".
+
+  $ cua stability --capability member.search --tenant tenant-b-address-only -n 10
+
+    runs         10
+    pass rate    10/10 (100%)
+    deterministic True
+
+    enter-id        primary=role_name    anchor_relative 10x   <-- fallback
+    read-name       primary=role_name    role_name 10x
+    submit-search   primary=role_name    role_name 10x
+
+    drift signals (10 run(s)):
+      - enter-id: resolved through a non-primary candidate in 100% of runs
+        (primary=role_name; anchor_relative 10x).
+    DEMOTED to draft: member.search may no longer replay unattended
+    (tenant run: the overlay needs review, the base is untouched)
+
+**Ten out of ten passed.** Nothing failed, nothing timed out, and a pass rate alone would
+have called this healthy. The recorded primary for `enter-id` is dead on this surface -
+the renamed label - and the capability is standing entirely on candidate 1, an anchor
+relative to "Search". That is the failure mode the whole ranked chain exists to survive
+and the exact failure mode that hides from a pass rate.
+
+Two of the three controls are unaffected, which is the other half of the finding:
+`submit-search` and `read-name` anchor on text that tenant-b did not rename, so they
+resolve through their primaries either way. Only the control that touches the renamed
+label drifts, and the overlay is what fixes it.
+
+
+4. THE STALENESS RULE, REFUSING
+------------------------------------------------------------------------------
+capabilities/overlays/member.search.tenant-b-stale.json is the tenant-b overlay with
+`verified_against` set to 0.9.0, one version behind the base it is applied to.
+
+  $ cua replay --capability member.search --params '{"member_id": "12345"}' \
+      --tenant tenant-b-stale
+
+  error: overlay needs review - base member.search is at 1.0.0, overlay verified
+  against 0.9.0. Re-verify it against this base version, or pass --attended.
+  exit 2
+
+  $ ... --tenant tenant-b-stale --attended
+
+  status          success
+  outputs         {"member_name": "Wilhelmina Okonkwo-Bright"}
+
+Each overlay records `verified_against`, the base version it was last confirmed against.
+When the base moves past it, resolution does not quietly reapply the overlay: it flags
+`needs_review` and demotes the resolved capability to `draft`, which the existing
+`Provenance.replayable_unattended` gate already refuses. One gate decides whether
+something may run unattended, not two.
+
+The overlay still *resolves*, which is why the attended run works. Refusing outright
+would leave no way to find out whether the overlay survived the base's change, and that
+is the question the human actually needs answered.
+
+The refusal happens before a browser is launched, so a stale overlay costs nothing to
+discover - and it names the overlay rather than only reporting `state=draft`, which is
+what the engine's precondition failure would have said on its own.
+
+
+RAW RUNS
+------------------------------------------------------------------------------
+evidence/tenant-overlay/replay-tenant-a/     run.jsonl + result.json
+evidence/tenant-overlay/replay-tenant-b/     run.jsonl + result.json
+evidence/tenant-overlay/full-overlay/        replay-x10.json + drift-x10.json
+evidence/tenant-overlay/address-only/        replay-x10.json + drift-x10.json
+
+Those directories are gitignored, as all run output is. This summary is committed because
+it carries no page state beyond the harness's own synthetic data. Reproduce it with the
+commands above against `python -m apps.harness 8099`.
+
+Two of the three committed overlays are deliberate controls rather than real tenants:
+`tenant-b-address-only` is incomplete on purpose so drift detection has something to
+detect, and `tenant-b-stale` is a version behind on purpose so the staleness refusal has
+something to refuse. `tenant-b` is the real one.

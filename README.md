@@ -29,18 +29,19 @@ This is an in-progress take-home build. What is real, and what is not, stated pl
 | `session/` — registry owning browsers, `ControlLock` | **built**, in-process only |
 | `evidence/` — JSONL run log, screenshots, `result.json` | **built** |
 | `catalog/` — capabilities as callable typed tools | **not yet implemented** |
-| overlay resolution — one artifact across two tenants | **not yet implemented** |
+| overlay resolution — one artifact across two tenants | **built**, replays on tenant-b with no re-recording |
+| drift detection — non-primary hits and new recoveries demote to draft | **built**, measured on a real fallback |
 | `surfaces/desktop.py`, `llm/ollama.py` | **interface only**, deliberately |
 | the descriptor format off the web | **proven, not built** — resolved against a live Windows AX tree, no `DesktopSurface` |
 
 So: a capability can be recorded from a live application, reviewed by a human, replayed
-deterministically with no model in the loop, and handed to a human and back when it gets
-stuck. What is missing is the catalog that exposes capabilities as agent-callable tools, and
-the overlay that lets one artifact serve two tenants.
+deterministically with no model in the loop, specialised for a second tenant by a diff
+rather than a copy, watched for drift, and handed to a human and back when it gets stuck.
+What is missing is the catalog that exposes capabilities as agent-callable tools.
 
 Every CLI subcommand is implemented.
 
-392 tests, ruff and mypy strict clean, green on every push.
+434 tests, ruff and mypy strict clean, green on every push.
 
 ---
 
@@ -83,7 +84,7 @@ the caller was told.
 throughout this README are **reproducible from the commands above rather than checked in** —
 the run ids name real directories on the machine they were produced on, not paths in this
 repo. The single exception is `evidence/desktop-ax-proof.txt`, which contains no application
-state and is committed.
+state and is committed, as is `evidence/tenant-overlay-proof.txt`.
 
 A clean discovery looks like this:
 
@@ -289,6 +290,69 @@ fix in the synthesizer.
 
 ---
 
+## One capability, two tenants
+
+tenant-b is the same app under a different config: rebranded, "Member ID" renamed to
+"Account Holder ID", a reordered column, a bumped footer version. The capability recorded
+against tenant-a runs there **without being re-recorded**. The only new artifact is an
+overlay — eight field paths and their replacement values.
+
+```bash
+cua replay --capability member.search --params '{"member_id": "12345"}'
+cua replay --capability member.search --params '{"member_id": "12345"}' --tenant tenant-b
+```
+
+Both return `success` with the same output, and all three controls resolve through their
+recorded primary. Resolution is PRD 5.8 exactly: load base → apply overrides by JSON path →
+validate → replay. An override that matches no field is an **error**, never a silent no-op —
+an overlay that looks maintained and changes nothing is the rot this design exists to avoid.
+
+An overlay records `verified_against`, the base version it was last confirmed against. When
+the base moves past it, resolution flags `needs_review` and demotes the resolved capability
+to `draft` — which the existing `replayable_unattended` gate already refuses, so there is one
+gate deciding that question rather than two. It still resolves, so a human can run it
+`--attended` to find out whether it survived; that is the question they actually need
+answered. Unattended, it is refused before a browser is launched, naming the overlay rather
+than only reporting `state=draft`.
+
+## Drift, and what it costs the artifact
+
+`locator_usage` already says which candidate fired and `recoveries` says which steps needed
+handling. Drift detection is the part that acts on them: a control resolving through a
+non-primary candidate in at least half its runs, or a step needing a recovery it has no
+baseline history of needing, is a signal — and enough signal sends an approved capability
+back to `draft`.
+
+The threshold to *mention* a fallback (0.2) and the threshold to *demote* on one (0.5) are
+deliberately different numbers answering different questions.
+
+**What this caught on real data.** A second overlay in the repo moves the entry url to
+tenant-b but deliberately leaves the label alone, so the capability arrives still looking for
+"Member ID":
+
+```
+  runs         10
+  pass rate    10/10 (100%)
+  deterministic True
+
+    enter-id        primary=role_name    anchor_relative 10x   <-- fallback
+
+  drift signals (10 run(s)):
+    - enter-id: resolved through a non-primary candidate in 100% of runs
+      (primary=role_name; anchor_relative 10x).
+  DEMOTED to draft: member.search may no longer replay unattended
+```
+
+Ten out of ten passed. A pass rate alone would have called that healthy. The recorded primary
+is dead and the capability is standing entirely on candidate 1 — which is exactly what the
+ranked chain is for, and exactly what hides from a green run. The other two controls anchor
+on text tenant-b did not rename and resolve through their primaries either way, so only the
+control that touches the renamed label drifts.
+
+Demoting the *base* because a tenant's overlay rotted would blame the wrong artifact, so a
+tenant run reports the drift and leaves the base alone. Full evidence in
+`evidence/tenant-overlay-proof.txt`.
+
 ## Handing control to a human
 
 A run that cannot proceed writes an `InterventionRequest` to its evidence directory —
@@ -358,14 +422,15 @@ src/cua/
   discovery/  the loop, the closed tool schema, prompts
   recording/  LocatorSynthesizer, outcome proposal, approval gate
   schema/     Pydantic capability models, JSON Schema export
-  replay/     candidate resolver, condition evaluator, deterministic engine
+  replay/     candidate resolver, condition evaluator, deterministic engine,
+              tenant overlay resolution, stability measurement, drift verdicts
   escalation/ intervention record, handoff, capture, mocked operator console
   catalog/    capability catalog                             (stub)
   evidence/   JSONL logger with redaction
 apps/harness/ fault-injection target app, tenant-a and tenant-b
-capabilities/ saved artifacts, overlays, and the exported JSON Schema
+capabilities/ saved artifacts, tenant overlays, and the exported JSON Schema
 scripts/      one-shot proofs whose output is the deliverable, not library code
-evidence/     run output (gitignored, except the checked-in desktop proof)
+evidence/     run output (gitignored, except the checked-in proofs)
 ```
 
 Design documents: `prd.md` (scope, schema, milestones) and `tech.md` (architecture, stack,

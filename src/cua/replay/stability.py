@@ -62,6 +62,10 @@ class StabilityReport(BaseModel):
         default_factory=dict, description="How many runs ended in each status."
     )
     controls: list[ControlStability] = Field(default_factory=list)
+    recoveries: dict[str, int] = Field(
+        default_factory=dict,
+        description="Per step, how many runs needed a recovery to get past an outcome.",
+    )
     drift_signals: list[str] = Field(default_factory=list)
     durations_ms: list[int] = Field(default_factory=list)
     failures: list[str] = Field(default_factory=list)
@@ -90,6 +94,7 @@ class StabilityReport(BaseModel):
             passes=self.passes,
             measured_at=self.measured_at,
             locator_usage={c.step_id: dict(c.fired) for c in self.controls},
+            recoveries=self.recoveries,
             drift_signals=self.drift_signals,
         )
 
@@ -152,6 +157,7 @@ def measure(
     fired: dict[str, Counter[str]] = defaultdict(Counter)
     statuses: Counter[str] = Counter()
     drift: list[str] = []
+    recoveries: Counter[str] = Counter()
     durations: list[int] = []
     failures: list[str] = []
 
@@ -160,6 +166,9 @@ def measure(
         statuses[result.status] += 1
         durations.append(result.duration_ms)
         drift.extend(result.drift_signals)
+        # Counting *runs that needed a recovery*, not individual recoveries: a step that
+        # retried twice in one run is still one run in which the surface misbehaved.
+        recoveries.update(result.recoveries.keys())
         if result.status == "failure" and result.failure is not None:
             failures.append(
                 f"run {attempt + 1}: {result.failure.step_id}: {result.failure.observed}"
@@ -193,6 +202,7 @@ def measure(
         passes=statuses.get("success", 0),
         statuses=dict(statuses),
         controls=controls,
+        recoveries=dict(recoveries),
         drift_signals=drift,
         durations_ms=durations,
         failures=failures,

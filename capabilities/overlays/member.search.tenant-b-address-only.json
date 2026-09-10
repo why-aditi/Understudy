@@ -1,0 +1,14 @@
+{
+  "base_capability_id": "member.search",
+  "base_version": "1.0.0",
+  "tenant_id": "tenant-b-address-only",
+  "verified_against": "1.0.0",
+  "overrides": [
+    {
+      "step_id": "<capability>",
+      "field_path": "entry.url",
+      "value": "http://127.0.0.1:8099/tenant-b/"
+    }
+  ],
+  "added_outcomes": []
+}

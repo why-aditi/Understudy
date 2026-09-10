@@ -140,11 +140,28 @@ def replay(
         typer.echo(f"error: {exc}", err=True)
         raise typer.Exit(code=2) from exc
 
-    if tenant and tenant != artifact.app.tenant_id:
-        raise typer.BadParameter(
-            f"{capability} was recorded for tenant {artifact.app.tenant_id!r}; "
-            "overlay resolution is not built yet"
-        )
+    if tenant:
+        from cua.replay.overlay import OverlayError, for_tenant
+
+        try:
+            resolved = for_tenant(artifact, tenant)
+        except OverlayError as exc:
+            typer.echo(f"error: {exc}", err=True)
+            raise typer.Exit(code=2) from exc
+        artifact = resolved.capability
+        if resolved.needs_review and not attended:
+            # The engine would refuse this anyway - the overlay demoted it to draft - but it
+            # would refuse with "state=draft", which does not tell the caller that an overlay
+            # went stale. Said here, before a browser is launched, for the same reason bad
+            # parameters are caught here: the message that matters should cost nothing.
+            typer.echo(
+                f"error: overlay needs review - {resolved.reason}. "
+                "Re-verify it against this base version, or pass --attended.",
+                err=True,
+            )
+            raise typer.Exit(code=2)
+        if resolved.needs_review:
+            typer.echo(f"warning: overlay needs review - {resolved.reason}", err=True)
 
     run_id = f"replay-{new_run_id()}"
     engine = PolicyEngine(load_policy())
@@ -279,8 +296,12 @@ def stability(
     capability: Annotated[str, typer.Option(help="Capability id to measure.")],
     n: Annotated[int, typer.Option("-n", "--runs", help="Number of replay runs.")] = 10,
     params: Annotated[str, typer.Option(help="JSON object of capability parameters.")] = "{}",
+    tenant: Annotated[str | None, typer.Option(help="Tenant overlay to apply.")] = None,
     headless: Annotated[bool, typer.Option(help="Hide the browser.")] = True,
     attended: Annotated[bool, typer.Option(help="Permit measuring a draft capability.")] = False,
+    demote: Annotated[
+        bool, typer.Option(help="Write the capability back to draft if drift crosses the bar.")
+    ] = True,
 ) -> None:
     """Replay a capability N times and report pass rate and locator-strategy usage.
 
@@ -293,11 +314,13 @@ def stability(
     from cua.evidence.logger import RunLogger
     from cua.policy.engine import PolicyContext, PolicyEngine
     from cua.policy.rules import load_policy
+    from cua.replay import drift as drift_module
     from cua.replay.engine import (
         ReplayEngine,
         ReplayError,
         can_act_through,
         load_capability,
+        save_capability,
         validate_params,
     )
     from cua.replay.resolver import Resolver
@@ -317,6 +340,18 @@ def stability(
     except ReplayError as exc:
         typer.echo(f"error: {exc}", err=True)
         raise typer.Exit(code=2) from exc
+
+    if tenant:
+        from cua.replay.overlay import OverlayError, for_tenant
+
+        try:
+            resolved = for_tenant(artifact, tenant)
+        except OverlayError as exc:
+            typer.echo(f"error: {exc}", err=True)
+            raise typer.Exit(code=2) from exc
+        artifact = resolved.capability
+        if resolved.needs_review:
+            typer.echo(f"warning: overlay needs review - {resolved.reason}", err=True)
 
     engine = PolicyEngine(load_policy())
     session_id = f"stability-{new_run_id()}"
@@ -350,8 +385,24 @@ def stability(
     path = write_report(report)
     typer.echo("")
     typer.echo(render(report))
+
+    verdict = drift_module.assess(artifact, report)
     typer.echo("")
-    typer.echo(f"written to {path}")
+    typer.echo(drift_module.render(verdict))
+    verdict_path = path.with_name(f"drift-x{report.runs}.json")
+    verdict_path.write_text(verdict.model_dump_json(indent=2), encoding="utf-8")
+
+    if verdict.demote and demote:
+        if tenant:
+            # A resolved overlay is not an artifact on disk, so there is nothing to write
+            # back. Demoting the base because a tenant's overlay has rotted would blame
+            # the wrong thing - the overlay is what needs review.
+            typer.echo("  (tenant run: the overlay needs review, the base is untouched)")
+        else:
+            save_capability(drift_module.demote(artifact, verdict, report))
+
+    typer.echo("")
+    typer.echo(f"written to {path} and {verdict_path}")
     if report.passes < report.runs:
         raise typer.Exit(code=1)
 

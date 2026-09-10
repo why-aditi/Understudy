@@ -188,6 +188,9 @@ class _RunState:
     #: an exhausted chain: "which candidate fired" is the first question about a bad replay.
     attempts: dict[str, list[str]] = field(default_factory=dict)
     drift: list[str] = field(default_factory=list)
+    #: Per step, the recoverable outcomes recovered from. Drift detection needs this as
+    #: structure, not as a log line it would have to parse back out.
+    recoveries: dict[str, list[str]] = field(default_factory=dict)
     steps_executed: int = 0
 
 
@@ -426,6 +429,7 @@ class ReplayEngine:
             )
         recovery_used[outcome.name] = used + 1
         self._recover(outcome, state)
+        state.recoveries.setdefault(step.id, []).append(outcome.name)
         state.drift.append(
             f"{step.id}: recovered from {outcome.name!r} (attempt {used + 1} of {budget})"
         )
@@ -649,6 +653,7 @@ class ReplayEngine:
             steps_executed=state.steps_executed,
             duration_ms=max(0, int((self._monotonic() - state.started) * 1000)),
             locator_usage=state.locator_usage,
+            recoveries=state.recoveries,
             drift_signals=state.drift,
         )
         self.logger.event("replay_end", result=result)
@@ -680,3 +685,11 @@ def load_capability(capability_id: str, directory: Path = CAPABILITY_DIR) -> Cap
     except OSError as exc:
         raise ReplayError(f"cannot read capability {capability_id!r} at {path}: {exc}") from exc
     return Capability.model_validate(json.loads(raw))
+
+
+def save_capability(capability: Capability, directory: Path = CAPABILITY_DIR) -> Path:
+    """Write a capability back over itself. Used when drift demotes one to draft."""
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / f"{capability.id}.json"
+    path.write_text(capability.model_dump_json(indent=2), encoding="utf-8")
+    return path

@@ -439,6 +439,13 @@ class StabilityRecord(BaseModel):
             "strategy appearing here is the earliest visible sign of UI drift."
         ),
     )
+    recoveries: dict[str, int] = Field(
+        default_factory=dict,
+        description=(
+            "Per step, how many runs needed a recovery. This is the baseline that makes "
+            "'a recoverable outcome that never fired before' answerable rather than guessed."
+        ),
+    )
     drift_signals: list[str] = Field(
         default_factory=list,
         description=(
@@ -685,6 +692,14 @@ class ReplayResult(BaseModel):
         description=(
             "Per control, which locator strategy actually fired. A non-primary strategy "
             "here is a drift signal, and it costs nothing to record."
+        ),
+    )
+    recoveries: dict[str, list[str]] = Field(
+        default_factory=dict,
+        description=(
+            "Per step, the recoverable outcomes that fired and were recovered from. Recorded "
+            "structurally rather than only as a log line, because drift detection has to ask "
+            "whether a step needed a recovery it never needed before."
         ),
     )
     drift_signals: list[str] = Field(
