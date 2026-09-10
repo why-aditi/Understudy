@@ -268,5 +268,15 @@ def operator(
     host: Annotated[str, typer.Option(help="Bind address for the operator console.")] = "127.0.0.1",
     port: Annotated[int, typer.Option(help="Port for the operator console.")] = 8765,
 ) -> None:
-    """Serve the mocked operator console that displays pending intervention requests."""
-    raise NotImplementedError
+    """Serve the mocked operator console that displays pending intervention requests.
+
+    The UI is the mock. The lock, the control transfer and the capture are real.
+    """
+    from pathlib import Path
+
+    from cua.escalation.operator_app import serve
+    from cua.evidence.logger import EVIDENCE_ROOT
+
+    typer.echo(f"operator console on http://{host}:{port}  (evidence: {Path(EVIDENCE_ROOT)})")
+    typer.echo("No authentication: bind to localhost only.")
+    serve(host=host, port=port, evidence_root=Path(EVIDENCE_ROOT))

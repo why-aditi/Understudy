@@ -1,4 +1,6 @@
-"""Smoke tests: the CLI surface exists and every subcommand is wired but unimplemented."""
+"""Smoke tests: the CLI surface exists and every subcommand is wired."""
+
+from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
@@ -21,12 +23,19 @@ def test_help_lists_every_command() -> None:
     ("argv"),
     [
         ["stability", "--capability", "member.balance.lookup"],
-        ["operator"],
     ],
 )
 def test_command_raises_not_implemented(argv: list[str]) -> None:
     result = runner.invoke(app, argv)
     assert isinstance(result.exception, NotImplementedError)
+
+
+def test_operator_is_wired_to_the_console() -> None:
+    """operator is implemented. It is not invoked here: serve() blocks forever by design."""
+    from cua.escalation.operator_app import create_app, serve
+
+    assert callable(serve)
+    assert create_app(Path("evidence")) is not None
 
 
 def test_review_is_wired_to_the_proposal_pass() -> None:

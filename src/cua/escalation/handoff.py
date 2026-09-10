@@ -11,6 +11,8 @@ never recorded on, so the checkpoint is re-asserted before anything else happens
 """
 
 import logging
+import time
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -21,7 +23,10 @@ from cua.escalation.intervention import (
     HumanAction,
     InterventionRequest,
     Reason,
+    ResumeSignal,
+    clear_resume,
     read_request,
+    resume_signal,
     write_request,
 )
 from cua.evidence.logger import RunLogger
@@ -294,6 +299,30 @@ class Handoff:
             summary=[action.describe() for action in actions],
         )
         return actions
+
+    def wait_for_resume(
+        self,
+        *,
+        timeout: float = 900.0,
+        poll: float = 1.0,
+        sleep: Callable[[float], None] = time.sleep,
+        monotonic: Callable[[], float] = time.monotonic,
+    ) -> ResumeSignal | None:
+        """Block until an operator signals resume, or the wait runs out.
+
+        Polling a file is not elegant, but the console is a separate process holding no
+        reference to this run. Returning None on timeout rather than raising lets the caller
+        decide whether an unattended run should give up or keep waiting.
+        """
+        deadline = monotonic() + timeout
+        while monotonic() < deadline:
+            signal = resume_signal(self.logger.directory)
+            if signal is not None:
+                clear_resume(self.logger.directory)
+                return signal
+            sleep(poll)
+        self.logger.event("resume_wait_timed_out", timeout_seconds=timeout)
+        return None
 
     def reverify(self, checkpoint: Condition | None) -> bool:
         """Re-assert the step's checkpoint before the run continues.

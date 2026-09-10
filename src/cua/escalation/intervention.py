@@ -21,6 +21,7 @@ from cua.session.lock import LockState
 _log = logging.getLogger(__name__)
 
 INTERVENTION_FILE = "intervention.json"
+RESUME_FILE = "resume.json"
 
 Reason = Literal["stuck", "risky_action_blocked", "unrecoverable", "policy_block"]
 
@@ -109,3 +110,39 @@ def read_request(directory: Path) -> InterventionRequest | None:
     if not path.exists():
         return None
     return InterventionRequest.model_validate(json.loads(path.read_text(encoding="utf-8")))
+
+
+class ResumeSignal(BaseModel):
+    """An operator saying "I am done, take it back".
+
+    A file rather than a call, because the console and the run are separate processes: the
+    console holds no reference to the run, and the run may be waiting on a machine the
+    console never talks to directly. A file both can see is the smallest thing that works.
+    """
+
+    run_id: str
+    by: str
+    at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+def signal_resume(directory: Path, by: str) -> Path:
+    """Record that a human has finished and control should return to automation."""
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / RESUME_FILE
+    signal = ResumeSignal(run_id=directory.name, by=by)
+    path.write_text(signal.model_dump_json(indent=2), encoding="utf-8")
+    _log.info("resume_signalled", extra={"run_id": signal.run_id, "by": by})
+    return path
+
+
+def resume_signal(directory: Path) -> ResumeSignal | None:
+    """The pending resume signal for a run, if an operator has given one."""
+    path = directory / RESUME_FILE
+    if not path.exists():
+        return None
+    return ResumeSignal.model_validate(json.loads(path.read_text(encoding="utf-8")))
+
+
+def clear_resume(directory: Path) -> None:
+    """Consume the signal, so the next escalation waits for a fresh one."""
+    (directory / RESUME_FILE).unlink(missing_ok=True)
