@@ -99,6 +99,7 @@ class FakeSurface:
             tree=self.tree,
             observation_hash="h",
             pruning=PruningStats(nodes_before=1, nodes_after=1),
+            screenshot=b"fake-png-bytes" if screenshot else None,
         )
 
     def act(self, action: Action) -> ActionResult:
@@ -398,8 +399,13 @@ def test_a_recoverable_outcome_retries_and_gives_up_bounded(tmp_path: Path) -> N
         result = replay.run(capability(outcomes=outcomes), {"member_id": "12345"})
 
     assert result.status == "failure"
-    assert result.failure is not None and "kept firing" in result.failure.observed
+    assert result.failure is not None
+    assert "still firing after 2 of 2" in result.failure.observed
     assert len(surface.actions) <= 3, "the retry must be bounded"
+    assert result.drift_signals == [
+        "read-balance: recovered from 'interstitial' (attempt 1 of 2)",
+        "read-balance: recovered from 'interstitial' (attempt 2 of 2)",
+    ]
 
 
 # ---- checkpoints ---------------------------------------------------------------------------------

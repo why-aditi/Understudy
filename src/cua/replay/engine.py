@@ -181,8 +181,12 @@ def to_action_target(locator: Locator, descriptor: ControlDescriptor) -> ActionT
 class _RunState:
     """Everything accumulated while stepping, gathered so the result can be assembled once."""
 
+    started: float = 0.0
     extracted: dict[str, str] = field(default_factory=dict)
     locator_usage: dict[str, str] = field(default_factory=dict)
+    #: Per step, the strategies the resolver tried. Any failure can report them, not just
+    #: an exhausted chain: "which candidate fired" is the first question about a bad replay.
+    attempts: dict[str, list[str]] = field(default_factory=dict)
     drift: list[str] = field(default_factory=list)
     steps_executed: int = 0
 
@@ -202,6 +206,7 @@ class ReplayEngine:
         policy: PolicyEngine,
         logger: RunLogger,
         resolver: Resolver | None = None,
+        allow_screenshots: bool = False,
         monotonic: Callable[[], float] = time.monotonic,
         sleep: Callable[[float], None] = time.sleep,
     ) -> None:
@@ -209,6 +214,9 @@ class ReplayEngine:
         self.policy = policy
         self.logger = logger
         self.resolver = resolver or Resolver(actionable=can_act_through)
+        # Off by default: a failure screenshot of a servicing screen is full of PII, and
+        # OCR-based redaction is not something this project solves.
+        self.allow_screenshots = allow_screenshots
         self._monotonic = monotonic
         self._sleep = sleep
 
@@ -217,8 +225,7 @@ class ReplayEngine:
     def run(
         self, capability: Capability, params: dict[str, Any], *, attended: bool = False
     ) -> ReplayResult:
-        started = self._monotonic()
-        state = _RunState()
+        state = _RunState(started=self._monotonic())
 
         validated = validate_params(capability.parameters, params)
         for parameter in capability.parameters:
@@ -239,7 +246,7 @@ class ReplayEngine:
             return self._failure(
                 capability,
                 state,
-                started,
+                None,
                 FailureDetail(
                     step_id="<precondition>",
                     expected="an approved capability with reviewed outcomes",
@@ -255,36 +262,46 @@ class ReplayEngine:
             if isinstance(outcome_result, ReplayResult):
                 return outcome_result
 
-        return self._success(capability, state, started)
+        return self._success(capability, state)
 
     # -- one step -----------------------------------------------------------------------
 
     def _run_step(
         self, capability: Capability, step: Step, params: dict[str, Any], state: _RunState
     ) -> ReplayResult | None:
-        """Execute one step. Returns a ReplayResult if the run should stop here."""
-        attempts_left = 1 + max(
-            (o.recovery.max_attempts for o in capability.outcomes if o.recovery), default=0
-        )
+        """Execute one step. Returns a ReplayResult if the run should stop here.
 
-        while attempts_left > 0:
-            attempts_left -= 1
+        Recovery is bounded per outcome rather than per step: two different recoverable
+        conditions each get their own declared budget, and neither can be spent by the other.
+        """
+        recovery_used: dict[str, int] = {}
+
+        while True:
             observation = self.surface.observe()
 
             try:
                 target = self._resolve(step, observation, state)
             except LocatorExhausted as exhausted:
+                # A control that has vanished is often a screen the capability already knows
+                # about: a permission panel, a session timeout, an interstitial. Reporting
+                # "locator exhausted" there would throw away the one classification a human
+                # reviewed, and turn a declared answer into an automation break.
+                declared = first_matching(
+                    capability.outcomes, observation.tree, observation.url, step.id
+                )
+                if declared is not None:
+                    settled = self._handle_outcome(capability, state, step, declared, recovery_used)
+                    if settled is not None:
+                        return settled
+                    continue  # recovered; try the step again
                 return self._failure(
-                    capability,
-                    state,
-                    self._monotonic(),
-                    self._locator_failure(step, exhausted.attempts),
+                    capability, state, step, self._locator_failure(step, exhausted.attempts)
                 )
             except ReplayError as unsupported:
                 return self._failure(
                     capability,
                     state,
-                    self._monotonic(),
+                    step,
                     FailureDetail(
                         step_id=step.id,
                         expected="a candidate the surface can act through",
@@ -309,7 +326,7 @@ class ReplayEngine:
                 return self._failure(
                     capability,
                     state,
-                    self._monotonic(),
+                    step,
                     FailureDetail(
                         step_id=step.id,
                         expected=f"policy to permit a {step.risk_class} {step.action}",
@@ -325,46 +342,30 @@ class ReplayEngine:
             after = self.surface.observe()
             outcome = first_matching(capability.outcomes, after.tree, after.url, step.id)
 
-            if outcome is not None and outcome.kind == "business":
-                return self._business(capability, state, self._monotonic(), outcome)
-            if outcome is not None and outcome.kind == "hard_failure":
-                return self._failure(
-                    capability,
-                    state,
-                    self._monotonic(),
-                    FailureDetail(
-                        step_id=step.id,
-                        expected="the step to complete normally",
-                        observed=f"outcome {outcome.name!r} fired: {outcome.message_template}",
-                    ),
-                )
-            if outcome is not None and outcome.kind == "recoverable":
-                if attempts_left <= 0:
-                    return self._failure(
-                        capability,
-                        state,
-                        self._monotonic(),
-                        FailureDetail(
-                            step_id=step.id,
-                            expected="the recovery to clear the condition",
-                            observed=f"outcome {outcome.name!r} kept firing",
-                        ),
-                    )
-                self._recover(outcome, state)
-                state.drift.append(f"{step.id}: recovered from {outcome.name!r}")
-                continue  # retry the step
+            if outcome is not None:
+                # A declared situation always wins over the checkpoint: the capability
+                # said this can happen and what it means, so guessing from the checkpoint
+                # instead would throw away the only classification anyone reviewed.
+                settled = self._handle_outcome(capability, state, step, outcome, recovery_used)
+                if settled is not None:
+                    return settled
+                continue  # recovered; try the step again
 
             if step.checkpoint is not None and not evaluate(step.checkpoint, after.tree, after.url):
-                # A checkpoint that failed with no detector to explain it is the definition
-                # of an unknown page state, which is a hard failure rather than a retry.
+                # No detector matched and the checkpoint did not hold: the screen is in a
+                # state nobody described. Continuing from here would be guessing, so it is a
+                # hard failure rather than a silent carry-on.
                 return self._failure(
                     capability,
                     state,
-                    self._monotonic(),
+                    step,
                     FailureDetail(
                         step_id=step.id,
                         expected=describe(step.checkpoint),
-                        observed=f"checkpoint not met at {after.url}",
+                        observed=(
+                            f"checkpoint not met at {after.url}, and no declared outcome "
+                            f"explains it ({len(capability.outcomes)} detector(s) checked)"
+                        ),
                     ),
                 )
 
@@ -372,7 +373,7 @@ class ReplayEngine:
                 return self._failure(
                     capability,
                     state,
-                    self._monotonic(),
+                    step,
                     FailureDetail(
                         step_id=step.id,
                         expected=f"{step.action} to succeed",
@@ -381,6 +382,53 @@ class ReplayEngine:
                 )
             return None
 
+    def _handle_outcome(
+        self,
+        capability: Capability,
+        state: _RunState,
+        step: Step,
+        outcome: Outcome,
+        recovery_used: dict[str, int],
+    ) -> ReplayResult | None:
+        """Do what this outcome's kind says to do.
+
+        Returns a result when the run should stop, or None when the condition was recovered
+        from and the step should be attempted again. One place for the three-way decision,
+        because it is reached both after an action and when a control could not be found.
+        """
+        if outcome.kind == "business":
+            return self._business(capability, state, outcome)
+
+        if outcome.kind == "hard_failure":
+            return self._failure(
+                capability,
+                state,
+                step,
+                FailureDetail(
+                    step_id=step.id,
+                    expected="the step to complete normally",
+                    observed=f"outcome {outcome.name!r} fired: {outcome.message_template}",
+                ),
+            )
+
+        budget = outcome.recovery.max_attempts if outcome.recovery else 0
+        used = recovery_used.get(outcome.name, 0)
+        if used >= budget:
+            return self._failure(
+                capability,
+                state,
+                step,
+                FailureDetail(
+                    step_id=step.id,
+                    expected=f"the recovery to clear {outcome.name!r}",
+                    observed=f"still firing after {used} of {budget} permitted attempt(s)",
+                ),
+            )
+        recovery_used[outcome.name] = used + 1
+        self._recover(outcome, state)
+        state.drift.append(
+            f"{step.id}: recovered from {outcome.name!r} (attempt {used + 1} of {budget})"
+        )
         return None
 
     def _resolve(
@@ -393,6 +441,7 @@ class ReplayEngine:
 
         resolution: Resolution = self.resolver.resolve(observation.tree, step.target)
         state.locator_usage[step.id] = resolution.strategy
+        state.attempts[step.id] = [attempt.strategy for attempt in resolution.attempts]
         if resolution.drift:
             state.drift.append(resolution.drift)
         return to_action_target(resolution.locator, step.target)
@@ -470,35 +519,42 @@ class ReplayEngine:
             outputs[spec.name] = _coerce(raw.strip(), spec.type, f"output {spec.name!r}")
         return outputs
 
-    def _success(self, capability: Capability, state: _RunState, started: float) -> ReplayResult:
+    def _success(self, capability: Capability, state: _RunState) -> ReplayResult:
         outputs = self._outputs(capability, state)
         missing = [spec.name for spec in capability.outputs if spec.name not in outputs]
         if missing:
             return self._failure(
                 capability,
                 state,
-                started,
+                None,
                 FailureDetail(
                     step_id=capability.steps[-1].id,
                     expected=f"declared outputs {[s.name for s in capability.outputs]}",
                     observed=f"never extracted {missing}",
                 ),
             )
-        return self._finish(capability, state, started, "success", outputs=outputs)
+        return self._finish(capability, state, "success", outputs=outputs)
 
-    def _business(
-        self, capability: Capability, state: _RunState, started: float, outcome: Outcome
-    ) -> ReplayResult:
-        """A declared business situation. A result the caller asked for, never an exception."""
+    def _business(self, capability: Capability, state: _RunState, outcome: Outcome) -> ReplayResult:
+        """A declared business situation.
+
+        This is a result the caller asked for, not an exception and not a failure. "No such
+        member" is an answer. The outputs the capability said survive this outcome are
+        returned with it; the rest are simply absent.
+        """
+        available = self._outputs(capability, state)
         partial = {
-            name: value
-            for name, value in self._outputs(capability, state).items()
-            if name in outcome.partial_outputs
+            name: value for name, value in available.items() if name in outcome.partial_outputs
         }
+        self.logger.event(
+            "replay_business_outcome",
+            outcome=outcome.name,
+            partial_outputs=sorted(partial),
+            declared_partial=sorted(outcome.partial_outputs),
+        )
         return self._finish(
             capability,
             state,
-            started,
             "business_outcome",
             outputs=partial or None,
             outcome=OutcomeResult(
@@ -506,10 +562,63 @@ class ReplayEngine:
             ),
         )
 
+    def _capture_evidence(self, step_id: str | None) -> list[str]:
+        """Freeze what the screen looked like when it went wrong.
+
+        The accessibility snapshot is always written: it is the observation the run was
+        actually making decisions from, it is small, and it carries no pixels. A screenshot
+        is only taken when explicitly permitted, because a failure screenshot of a servicing
+        screen is unredacted PII.
+        """
+        if step_id is None:
+            # Nothing has been touched yet, so there is no screen worth freezing.
+            return []
+        paths: list[str] = []
+        try:
+            observation = self.surface.observe(screenshot=self.allow_screenshots)
+        except Exception as exc:  # noqa: BLE001 - capturing evidence must never mask the failure
+            self.logger.event("evidence_capture_failed", step=step_id, error=str(exc)[:200])
+            return paths
+
+        snapshot = {
+            "url": observation.url,
+            "title": observation.title,
+            "observation_hash": observation.observation_hash,
+            "tree": observation.tree.model_dump() if observation.tree else None,
+        }
+        paths.append(
+            str(
+                self.logger.save_artifact(
+                    f"failure-{step_id}.ax.json",
+                    json.dumps(snapshot, indent=2).encode("utf-8"),
+                )
+            )
+        )
+        if observation.screenshot is not None:
+            paths.append(
+                str(self.logger.save_artifact(f"failure-{step_id}.png", observation.screenshot))
+            )
+        self.logger.event("evidence_captured", step=step_id, paths=paths)
+        return paths
+
     def _failure(
-        self, capability: Capability, state: _RunState, started: float, failure: FailureDetail
+        self,
+        capability: Capability,
+        state: _RunState,
+        step: Step | None,
+        failure: FailureDetail,
     ) -> ReplayResult:
-        return self._finish(capability, state, started, "failure", failure=failure)
+        """Every failure carries evidence and the candidates that were tried getting there."""
+        step_id = step.id if step is not None else None
+        detail = failure.model_copy(
+            update={
+                "evidence_paths": failure.evidence_paths or self._capture_evidence(step_id),
+                "candidates_tried": (
+                    failure.candidates_tried or state.attempts.get(step_id or "", [])
+                ),
+            }
+        )
+        return self._finish(capability, state, "failure", failure=detail)
 
     def _locator_failure(self, step: Step, attempts: list[Attempt]) -> FailureDetail:
         return FailureDetail(
@@ -523,7 +632,6 @@ class ReplayEngine:
         self,
         capability: Capability,
         state: _RunState,
-        started: float,
         status: str,
         *,
         outputs: dict[str, Any] | None = None,
@@ -539,7 +647,7 @@ class ReplayEngine:
             outcome=outcome,
             failure=failure,
             steps_executed=state.steps_executed,
-            duration_ms=max(0, int((self._monotonic() - started) * 1000)),
+            duration_ms=max(0, int((self._monotonic() - state.started) * 1000)),
             locator_usage=state.locator_usage,
             drift_signals=state.drift,
         )

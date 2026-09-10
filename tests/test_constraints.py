@@ -291,4 +291,13 @@ def test_the_replay_engine_takes_no_llm_collaborator() -> None:
     from cua.replay.engine import ReplayEngine
 
     parameters = set(inspect.signature(ReplayEngine.__init__).parameters)
-    assert parameters == {"self", "surface", "policy", "logger", "resolver", "monotonic", "sleep"}
+    assert parameters == {
+        "self",
+        "surface",
+        "policy",
+        "logger",
+        "resolver",
+        "allow_screenshots",
+        "monotonic",
+        "sleep",
+    }
