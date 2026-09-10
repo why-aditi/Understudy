@@ -306,3 +306,37 @@ def test_a_failure_reports_a_real_duration(tmp_path: Path) -> None:
 
     assert result.status == "failure"
     assert result.duration_ms > 0
+
+
+# ---- the run is self-documenting -------------------------------------------------------
+
+
+def test_every_replay_writes_its_result_beside_the_log(tmp_path: Path) -> None:
+    """run.jsonl is how the replay went; result.json is what the caller was told.
+
+    Reading one without the other is guesswork, so the engine writes both rather than
+    leaving it to whoever happened to call it.
+    """
+    surface = FakeSurface()
+    replay, logger = build(surface, tmp_path)
+
+    with logger:
+        result = replay.run(capability(), {"member_id": "12345"})
+
+    written = json.loads((logger.directory / "result.json").read_text(encoding="utf-8"))
+    assert written == result.model_dump(mode="json")
+    assert written["status"] == "success"
+    assert (logger.directory / "run.jsonl").exists()
+
+
+def test_a_failed_replay_also_leaves_a_result(tmp_path: Path) -> None:
+    """The runs worth reading afterwards are the ones that went wrong."""
+    surface = FakeSurface()
+    replay, logger = build(surface, tmp_path)
+
+    with logger:
+        result = replay.run(capability(outcomes=hard()), {"member_id": "12345"})
+
+    written = json.loads((logger.directory / "result.json").read_text(encoding="utf-8"))
+    assert written["status"] == "failure"
+    assert written["failure"]["evidence_paths"] == result.failure.evidence_paths  # type: ignore[union-attr]

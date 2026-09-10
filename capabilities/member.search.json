@@ -1,0 +1,430 @@
+{
+  "schema_version": "1.0",
+  "id": "member.search",
+  "name": "Look up a member by id",
+  "description": "Search for a member by id and read the name on the results row.",
+  "version": "1.0.0",
+  "app": {
+    "vendor_product": "meridian-core",
+    "product_version": "4.2.1",
+    "tenant_id": "tenant-a",
+    "base_capability_id": null
+  },
+  "surface_kind": "web",
+  "entry": {
+    "url": "http://127.0.0.1:8099/tenant-a/",
+    "requires_authenticated_session": true
+  },
+  "parameters": [
+    {
+      "name": "member_id",
+      "type": "string",
+      "required": true,
+      "sensitive": false,
+      "description": "The member's identifier as printed on their statement.",
+      "example": "12345"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "member_name",
+      "type": "string",
+      "source_step_id": "read-name",
+      "description": "Name on the matching member row.",
+      "sensitive": false
+    }
+  ],
+  "steps": [
+    {
+      "id": "enter-id",
+      "intent": "type the member id into the search field",
+      "action": "type",
+      "target": {
+        "role": "textbox",
+        "name": "Member ID",
+        "candidates": [
+          {
+            "strategy": "role_name",
+            "params": {
+              "role": "textbox",
+              "name": "Member ID",
+              "match": "exact"
+            },
+            "stability_score": 0.85,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "anchor_relative",
+            "params": {
+              "anchor_text": "Search",
+              "anchor_role": "cell",
+              "relation": "same_row",
+              "target_role": "textbox",
+              "index": 0
+            },
+            "stability_score": 0.8,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "anchor_relative",
+            "params": {
+              "anchor_text": "Search",
+              "anchor_role": "link",
+              "relation": "same_row",
+              "target_role": "textbox",
+              "index": 0
+            },
+            "stability_score": 0.8,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "anchor_relative",
+            "params": {
+              "anchor_text": "Search",
+              "anchor_role": "StaticText",
+              "relation": "same_row",
+              "target_role": "textbox",
+              "index": 0
+            },
+            "stability_score": 0.8,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "anchor_relative",
+            "params": {
+              "anchor_text": "Member ID",
+              "anchor_role": "cell",
+              "relation": "following",
+              "target_role": "textbox",
+              "index": 0
+            },
+            "stability_score": 0.8,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "anchor_relative",
+            "params": {
+              "anchor_text": "Member search",
+              "relation": "within_region",
+              "target_role": "textbox",
+              "index": 0
+            },
+            "stability_score": 0.8,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "region_ordinal",
+            "params": {
+              "region": "Member search",
+              "role": "textbox",
+              "index": 0
+            },
+            "stability_score": 0.55,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          }
+        ]
+      },
+      "value": {
+        "param": "member_id"
+      },
+      "checkpoint": null,
+      "timeout_ms": 10000,
+      "risk_class": "safe"
+    },
+    {
+      "id": "submit-search",
+      "intent": "submit the member search",
+      "action": "click",
+      "target": {
+        "role": "link",
+        "name": "Search",
+        "candidates": [
+          {
+            "strategy": "role_name",
+            "params": {
+              "role": "link",
+              "name": "Search",
+              "match": "exact"
+            },
+            "stability_score": 0.85,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "anchor_relative",
+            "params": {
+              "anchor_text": "Member ID",
+              "anchor_role": "cell",
+              "relation": "same_row",
+              "target_role": "link",
+              "index": 0
+            },
+            "stability_score": 0.8,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "anchor_relative",
+            "params": {
+              "anchor_text": "Member ID",
+              "anchor_role": "StaticText",
+              "relation": "same_row",
+              "target_role": "link",
+              "index": 0
+            },
+            "stability_score": 0.8,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "anchor_relative",
+            "params": {
+              "anchor_text": "Member ID",
+              "anchor_role": "cell",
+              "relation": "same_row",
+              "target_role": "link",
+              "index": 0
+            },
+            "stability_score": 0.8,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "anchor_relative",
+            "params": {
+              "anchor_text": "Member ID",
+              "anchor_role": "textbox",
+              "relation": "same_row",
+              "target_role": "link",
+              "index": 0
+            },
+            "stability_score": 0.8,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "anchor_relative",
+            "params": {
+              "anchor_text": "Member search",
+              "relation": "within_region",
+              "target_role": "link",
+              "index": 0
+            },
+            "stability_score": 0.8,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "region_ordinal",
+            "params": {
+              "region": "Member search",
+              "role": "link",
+              "index": 0
+            },
+            "stability_score": 0.55,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          }
+        ]
+      },
+      "value": null,
+      "checkpoint": null,
+      "timeout_ms": 10000,
+      "risk_class": "safe"
+    },
+    {
+      "id": "read-name",
+      "intent": "read the member name from the results row",
+      "action": "extract",
+      "target": {
+        "role": "cell",
+        "name": "Wilhelmina Okonkwo-Bright",
+        "candidates": [
+          {
+            "strategy": "role_name",
+            "params": {
+              "role": "cell",
+              "name": "Wilhelmina Okonkwo-Bright",
+              "match": "exact"
+            },
+            "stability_score": 0.85,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "anchor_relative",
+            "params": {
+              "anchor_text": "12345",
+              "anchor_role": "StaticText",
+              "relation": "following",
+              "target_role": "cell",
+              "index": 0
+            },
+            "stability_score": 0.8,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "anchor_relative",
+            "params": {
+              "anchor_text": "12345",
+              "anchor_role": "cell",
+              "relation": "same_row",
+              "target_role": "cell",
+              "index": 1
+            },
+            "stability_score": 0.6,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "anchor_relative",
+            "params": {
+              "anchor_text": "12345",
+              "anchor_role": "StaticText",
+              "relation": "same_row",
+              "target_role": "cell",
+              "index": 1
+            },
+            "stability_score": 0.6,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "anchor_relative",
+            "params": {
+              "anchor_text": "Active",
+              "anchor_role": "cell",
+              "relation": "same_row",
+              "target_role": "cell",
+              "index": 1
+            },
+            "stability_score": 0.6,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "anchor_relative",
+            "params": {
+              "anchor_text": "Active",
+              "anchor_role": "StaticText",
+              "relation": "same_row",
+              "target_role": "cell",
+              "index": 1
+            },
+            "stability_score": 0.6,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "anchor_relative",
+            "params": {
+              "anchor_text": "Search results",
+              "relation": "within_region",
+              "target_role": "cell",
+              "index": 1
+            },
+            "stability_score": 0.6,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "region_ordinal",
+            "params": {
+              "region": "Search results",
+              "role": "cell",
+              "index": 1
+            },
+            "stability_score": 0.35,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          }
+        ]
+      },
+      "value": null,
+      "checkpoint": {
+        "kind": "text_present",
+        "params": {
+          "text": "Search results"
+        },
+        "negate": false
+      },
+      "timeout_ms": 10000,
+      "risk_class": "safe"
+    }
+  ],
+  "outcomes": [
+    {
+      "name": "member_not_found",
+      "kind": "business",
+      "detect": {
+        "kind": "text_present",
+        "params": {
+          "text": "No member matches"
+        },
+        "negate": false
+      },
+      "applies_to": "any",
+      "recovery": null,
+      "message_template": "No member matches the supplied id.",
+      "partial_outputs": []
+    },
+    {
+      "name": "maintenance_notice",
+      "kind": "recoverable",
+      "detect": {
+        "kind": "text_present",
+        "params": {
+          "text": "Scheduled maintenance"
+        },
+        "negate": false
+      },
+      "applies_to": "any",
+      "recovery": {
+        "action": "dismiss_dialog",
+        "max_attempts": 2,
+        "target": {
+          "role": "link",
+          "name": "Acknowledge",
+          "candidates": [
+            {
+              "strategy": "role_name",
+              "params": {
+                "role": "link",
+                "name": "Acknowledge",
+                "match": "exact"
+              },
+              "stability_score": 0.9,
+              "verified_unique_at_record": true,
+              "surface_specific": false
+            }
+          ]
+        }
+      },
+      "message_template": "Dismissed a scheduled-maintenance notice.",
+      "partial_outputs": []
+    }
+  ],
+  "policy": {
+    "allowed_hosts": [],
+    "allowed_routes": [],
+    "max_steps": 25,
+    "max_wall_clock_seconds": 300
+  },
+  "provenance": {
+    "discovered_at": "2026-09-10T09:31:14.086739Z",
+    "model": "synthesised from the live harness",
+    "discovery_run_id": "manual",
+    "state": "approved",
+    "approved_by": "aditi",
+    "outcomes_reviewed": true
+  },
+  "stability": null
+}

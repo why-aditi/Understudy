@@ -652,6 +652,9 @@ class ReplayEngine:
             drift_signals=state.drift,
         )
         self.logger.event("replay_end", result=result)
+        # The result belongs beside the log it explains: run.jsonl is how the replay went,
+        # result.json is what the caller was told. Reading one without the other is guesswork.
+        self.logger.save_artifact("result.json", result.model_dump_json(indent=2).encode("utf-8"))
         return result
 
 
