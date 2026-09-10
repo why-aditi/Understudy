@@ -1,0 +1,19 @@
+{% extends "_base.html" %}
+{% block title %}Identity verification{% endblock %}
+{% block heading %}Identity verification{% endblock %}
+{% block body %}
+{% if message %}<p id="{{ eid() }}"><font color="#990000">{{ message }}</font></p>{% endif %}
+<form method="get" action="/{{ tenant }}/members/{{ member_id }}/verified" name="verifyForm" id="{{ eid() }}">
+{% if fail %}<input type="hidden" name="fail" value="{{ fail }}">{% endif %}
+<table border="0" cellpadding="3" id="{{ eid() }}">
+<tr>
+  <td id="{{ eid() }}"><label for="{{ 'code' }}" id="{{ eid() }}">Verification code</label></td>
+  <td id="{{ eid() }}"><input type="text" name="code" id="code" size="16"></td>
+  <td id="{{ eid() }}">
+    <a href="#" id="{{ eid() }}"
+       onclick="document.forms['verifyForm'].submit(); return false;">Verify</a>
+  </td>
+</tr>
+</table>
+</form>
+{% endblock %}

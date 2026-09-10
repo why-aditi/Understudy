@@ -24,6 +24,9 @@ MEMBERS: dict[str, dict[str, Any]] = {
         "name": "Wilhelmina Okonkwo-Bright",
         "status": "Active",
         "joined": "2019-03-14",
+        # Deliberately not account-, card- or SSN-shaped, so the shape-based backstop in
+        # policy/redaction.py cannot match it. Only a declared sensitive value redacts this.
+        "code": "QX7-4412",
         "accounts": [
             {"ref": "SAV-88120", "kind": "Savings", "balance": "4,182.55", "opened": "2019-03-14"},
             {"ref": "CHQ-40771", "kind": "Chequing", "balance": "912.08", "opened": "2019-03-14"},
@@ -39,6 +42,7 @@ MEMBERS: dict[str, dict[str, Any]] = {
         "name": "Bartholomew Quist",
         "status": "Dormant",
         "joined": "2015-11-02",
+        "code": "LM2-9083",
         "accounts": [
             {"ref": "SAV-22410", "kind": "Savings", "balance": "77.40", "opened": "2015-11-02"}
         ],
@@ -194,6 +198,33 @@ async def accounts_frame(
         accounts=member["accounts"],
         headings=["Type", "Reference"] if kind_first else ["Reference", "Type"],
         kind_first=kind_first,
+    )
+
+
+@app.get("/{tenant}/members/{member_id}/verify", response_class=HTMLResponse)
+async def verify(request: Request, tenant: str, member_id: str, fail: Fail = "") -> HTMLResponse:
+    """A screen whose input is genuinely secret, so redaction has something to redact."""
+    if (early := await injected(request, tenant, fail)) is not None:
+        return early
+    return render(request, "verify.html", tenant=tenant, fail=fail, member_id=member_id, message="")
+
+
+@app.get("/{tenant}/members/{member_id}/verified", response_class=HTMLResponse)
+async def verified(
+    request: Request, tenant: str, member_id: str, code: str = "", fail: Fail = ""
+) -> HTMLResponse:
+    """The code arrives in the query string on purpose.
+
+    A secret that never reaches a logged field would demonstrate nothing. This one lands in
+    the observation url and in `ActionResult.url_after`, so the redaction filter has to catch
+    it there or it reaches disk.
+    """
+    if (early := await injected(request, tenant, fail)) is not None:
+        return early
+    member = MEMBERS[member_id]
+    outcome = "Identity verified" if code == member["code"] else "Code not recognised"
+    return render(
+        request, "verified.html", tenant=tenant, fail=fail, member=member, outcome=outcome
     )
 
 

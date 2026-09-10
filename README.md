@@ -168,7 +168,7 @@ What is real, and what is not, stated plainly:
 
 `REPORT.md` is the engineering report: what was built, where it is weak, and what was cut.
 
-505 tests, ruff and mypy strict clean, green on every push.
+511 tests, ruff and mypy strict clean, green on every push.
 
 A discovery writes `evidence/discovery-<run_id>/`:
 
@@ -551,9 +551,12 @@ application two screens from where the run expected it.
   action is not a control.
 - **Risky actions** (submit, save, create) are allowed during discovery and, on replay, only
   when a human approved the capability *and* the step was actually recorded.
-- **Sensitive values never reach disk.** Parameters marked sensitive are supplied per
-  invocation; a redaction filter on the log writer is the backstop, catching declared values
-  plus account-, SSN- and card-shaped strings.
+- **Sensitive values never reach disk**, and there is a run that shows it.
+  `cua replay --capability member.verify --params '{"code": "QX7-4412"}'` succeeds — so the
+  value really was typed — while the literal appears zero times in `run.jsonl`, `result.json`
+  or the artifact, replaced by `[REDACTED:code]`. The harness puts the code in a query string
+  deliberately, so it lands in a logged field and the filter has to catch it there.
+  `evidence/redaction-proof.txt`.
 - **Screenshots default to off.** With `--allow-screenshots` they are written as files in the
   evidence directory and never inlined into a log record. Whether they also reach the model is
   a separate decision, made by the provider's capabilities rather than the flag.

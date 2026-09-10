@@ -2,7 +2,7 @@ An LLM calling a recorded capability
 ==============================================================================
 
 model    : openai/gpt-oss-120b (Groq free tier)
-catalog  : 2 approved capabilit(ies), generated from the artifacts
+catalog  : 3 approved capabilit(ies), generated from the artifacts
 
   tool  member.savings_balance.read  v1.0.0
         Read the current savings balance from an open sub-account screen.
@@ -12,6 +12,10 @@ catalog  : 2 approved capabilit(ies), generated from the artifacts
         Search for a member by id and read the name on the results row.
         args    {"member_id": {"type": "string", "description": "The member's identifier as printed on their statement.", "examples": ["12345"]}}
         required ['member_id']
+  tool  member.verify  v1.0.0
+        Submit a member's verification code and read whether the identity was accepted. The code is sensitive: it is supplied per call and never written to disk.
+        args    {"code": {"type": "string", "description": "The member's verification code, as read to them over the phone. Sensitive: supplied per call, never persisted.", "writeOnly": true}}
+        required ['code']
 
 ------------------------------------------------------------------------------
 user  : "Who is member 12345?"
@@ -35,8 +39,8 @@ model : "Member 99999 was not found."
 ------------------------------------------------------------------------------
 What the catalog refuses, checked without a model:
 
-  listed as callable                 2 approved, 0 once approval is withdrawn
-  a capability that does not exist   UnknownTool: no capability named 'member.teleport'; have ['member.savings_balance.read', 'member.search']
+  listed as callable                 3 approved, 0 once approval is withdrawn
+  a capability that does not exist   UnknownTool: no capability named 'member.teleport'; have ['member.savings_balance.read', 'member.search', 'member.verify']
   a misspelled argument              CatalogError: member.search: unknown parameter(s) ['membre_id']; expected ['member_id']
   a missing required argument        CatalogError: member.search: missing required parameter(s) ['member_id']
   calling an unapproved capability   NotApproved: 'member.search' is not callable: state=draft, outcomes_reviewed=True. A human has to approve it and review its outcomes first.

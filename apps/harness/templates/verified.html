@@ -1,0 +1,9 @@
+{% extends "_base.html" %}
+{% block title %}Verification result{% endblock %}
+{% block heading %}Verification result{% endblock %}
+{% block body %}
+<table border="1" cellpadding="4" cellspacing="0" id="{{ eid() }}">
+<tr><td id="{{ eid() }}"><b>Member</b></td><td id="{{ eid() }}">{{ member.name }}</td></tr>
+<tr><td id="{{ eid() }}"><b>Verification</b></td><td id="{{ eid() }}">{{ outcome }}</td></tr>
+</table>
+{% endblock %}

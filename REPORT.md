@@ -6,7 +6,7 @@ versioned capability artifact and replays it deterministically with no model in 
 **Citations.** Three evidence files are committed: `desktop-ax-proof.txt`,
 `tenant-overlay-proof.txt`, `catalog-agent-demo.txt`. The rest of `evidence/` is gitignored because
 run output carries captured page state; those runs are named by id below and reproduce from the
-README's commands. 505 tests, 26 files, ruff and mypy strict clean.
+README's commands. 511 tests, 26 files, ruff and mypy strict clean.
 
 ## Architecture
 
@@ -191,9 +191,15 @@ missing or malformed policy file is an error, never a permissive default.
   `state="approved"` and `outcomes_reviewed=True`. One property governs three callers — unattended
   replay, overlay staleness, catalog listing — rather than three rules to keep in sync. In
   `evidence/catalog-agent-demo.txt`, withdrawing approval drops the agent's tool list from 2 to 0.
-- **Sensitive values never reach disk.** Supplied per invocation and dropped; a redaction filter
-  catching declared values plus account-, SSN- and card-shaped strings is the backstop, not the
-  plan. **Screenshots default off**: OCR redaction of a servicing screen is not in this budget.
+- **Sensitive values never reach disk**, demonstrated rather than asserted. `member.verify`
+  declares a sensitive `code`, and the harness screen puts that code in a query string on
+  purpose so it lands in a logged field. `evidence/redaction-proof.txt`: the run returns
+  "Identity verified", so the value really was typed; the literal appears **0 times** across
+  `run.jsonl`, `result.json` and the artifact, with 5 `[REDACTED:code]` markers written
+  instead. The code is shaped so the account-/SSN-/card-pattern backstop cannot match it, so
+  only the declared value can redact it. The artifact holds a `ParamRef`, never a value, and
+  the model nulls the example. **Screenshots default off**: the browser's own url bar held the
+  code, and OCR redaction of a servicing screen is not in this budget.
 
 **Weak point: free-tier prompts leave the machine and are retained by the provider.** Every prompt
 contains an accessibility tree of whatever is on screen, and on a free tier that content is

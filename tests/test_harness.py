@@ -143,3 +143,38 @@ def test_the_search_submit_is_an_anchor_with_onclick() -> None:
 def test_the_detail_screen_is_a_real_frameset() -> None:
     page = body("/tenant-a/members/12345")
     assert "<frameset" in page and "<frame " in page and "noframes" in page
+
+
+# ---- the verification screen -------------------------------------------------------------
+
+
+def test_the_verification_screen_offers_a_code_field() -> None:
+    body = client.get("/tenant-a/members/12345/verify").text
+
+    assert "Verification code" in body
+    assert 'name="code"' in body
+    assert "onclick" in body, "submit is an <a>, like the rest of the harness"
+
+
+def test_the_right_code_verifies_and_a_wrong_one_does_not() -> None:
+    right = client.get("/tenant-a/members/12345/verified?code=QX7-4412").text
+    wrong = client.get("/tenant-a/members/12345/verified?code=nope").text
+
+    assert "Identity verified" in right
+    assert "Code not recognised" in wrong
+
+
+def test_the_code_is_shaped_so_only_a_declared_value_can_redact_it() -> None:
+    """The shape-based backstop must not match it, or the demo proves the wrong half.
+
+    `redact` with no declared values has to leave these untouched; only declaring them
+    should blank them. Otherwise the evidence would show the pattern matcher working and
+    say nothing about per-invocation sensitive parameters.
+    """
+    from apps.harness.app import MEMBERS
+    from cua.policy.redaction import redact
+
+    for member in MEMBERS.values():
+        code = str(member["code"])
+        assert redact(code) == code, f"{code!r} matches a shape pattern"
+        assert redact(code, {"code": code}) == "[REDACTED:code]"

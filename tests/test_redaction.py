@@ -1,8 +1,11 @@
 """Nothing sensitive reaches disk. This filter is the backstop, not the primary control."""
 
 import logging
+from pathlib import Path
 
 from cua.policy.redaction import RedactionFilter, redact
+
+REPO = Path(__file__).resolve().parents[1]
 
 
 def _record(
@@ -76,3 +79,45 @@ def test_reserved_record_attributes_are_left_alone() -> None:
     log_filter.filter(record)
     assert record.pathname == __file__
     assert record.levelname == "INFO"
+
+
+# ---- the committed capability that exercises this end to end -----------------------------
+
+
+def test_the_verify_capability_declares_its_code_sensitive_and_carries_no_example() -> None:
+    """The artifact this project ships to prove redaction does something.
+
+    `member.verify` is the only capability with a sensitive parameter, which is what makes
+    the filter reachable by an evidence run rather than only by these unit tests.
+    """
+    from cua.replay.engine import load_capability
+
+    capability = load_capability("member.verify", REPO / "capabilities")
+    code = next(p for p in capability.parameters if p.name == "code")
+
+    assert code.sensitive is True
+    assert code.example is None, "an example of a real code is a real code"
+
+
+def test_the_verify_capability_references_its_code_rather_than_storing_it() -> None:
+    """A sensitive value reaches a step as a reference. The artifact never holds the value."""
+    from cua.replay.engine import load_capability
+    from cua.schema.models import ParamRef
+
+    capability = load_capability("member.verify", REPO / "capabilities")
+    typed = next(s for s in capability.steps if s.action == "type")
+
+    assert isinstance(typed.value, ParamRef)
+    assert typed.value.param == "code"
+    assert "QX7-4412" not in capability.model_dump_json(), "no code literal anywhere"
+
+
+def test_a_declared_value_is_scrubbed_out_of_a_url_it_leaked_into() -> None:
+    """The verify screen puts the code in a query string on purpose.
+
+    A secret that never reaches a logged field would demonstrate nothing; this one lands in
+    the observation url, so the filter has to catch it there.
+    """
+    leaked = "http://127.0.0.1:8099/tenant-a/members/12345/verified?code=QX7-4412"
+
+    assert redact(leaked, {"code": "QX7-4412"}).endswith("?code=[REDACTED:code]")

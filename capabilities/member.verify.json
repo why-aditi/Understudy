@@ -1,0 +1,327 @@
+{
+  "schema_version": "1.0",
+  "id": "member.verify",
+  "name": "Verify a member's identity",
+  "description": "Submit a member's verification code and read whether the identity was accepted. The code is sensitive: it is supplied per call and never written to disk.",
+  "version": "1.0.0",
+  "app": {
+    "vendor_product": "meridian-core",
+    "product_version": "4.2.1",
+    "tenant_id": "tenant-a",
+    "base_capability_id": null
+  },
+  "surface_kind": "web",
+  "entry": {
+    "url": "http://127.0.0.1:8099/tenant-a/members/12345/verify",
+    "requires_authenticated_session": true
+  },
+  "parameters": [
+    {
+      "name": "code",
+      "type": "string",
+      "required": true,
+      "sensitive": true,
+      "description": "The member's verification code, as read to them over the phone.",
+      "example": null
+    }
+  ],
+  "outputs": [
+    {
+      "name": "verification",
+      "type": "string",
+      "source_step_id": "read-outcome",
+      "description": "Whether the identity was verified.",
+      "sensitive": false
+    }
+  ],
+  "steps": [
+    {
+      "id": "enter-code",
+      "intent": "type the verification code",
+      "action": "type",
+      "target": {
+        "role": "textbox",
+        "name": "Verification code",
+        "candidates": [
+          {
+            "strategy": "role_name",
+            "params": {
+              "role": "textbox",
+              "name": "Verification code",
+              "match": "exact"
+            },
+            "stability_score": 0.85,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "anchor_relative",
+            "params": {
+              "anchor_text": "Verify",
+              "anchor_role": "cell",
+              "relation": "same_row",
+              "target_role": "textbox",
+              "index": 0
+            },
+            "stability_score": 0.8,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "anchor_relative",
+            "params": {
+              "anchor_text": "Verify",
+              "anchor_role": "link",
+              "relation": "same_row",
+              "target_role": "textbox",
+              "index": 0
+            },
+            "stability_score": 0.8,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "anchor_relative",
+            "params": {
+              "anchor_text": "Verify",
+              "anchor_role": "StaticText",
+              "relation": "same_row",
+              "target_role": "textbox",
+              "index": 0
+            },
+            "stability_score": 0.8,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "anchor_relative",
+            "params": {
+              "anchor_text": "Verification code",
+              "anchor_role": "cell",
+              "relation": "following",
+              "target_role": "textbox",
+              "index": 0
+            },
+            "stability_score": 0.8,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "anchor_relative",
+            "params": {
+              "anchor_text": "Identity verification",
+              "relation": "within_region",
+              "target_role": "textbox",
+              "index": 0
+            },
+            "stability_score": 0.8,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "region_ordinal",
+            "params": {
+              "region": "Identity verification",
+              "role": "textbox",
+              "index": 0
+            },
+            "stability_score": 0.55,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          }
+        ]
+      },
+      "value": {
+        "param": "code"
+      },
+      "checkpoint": null,
+      "timeout_ms": 10000,
+      "risk_class": "safe"
+    },
+    {
+      "id": "submit-verification",
+      "intent": "submit the code",
+      "action": "click",
+      "target": {
+        "role": "link",
+        "name": "Verify",
+        "candidates": [
+          {
+            "strategy": "role_name",
+            "params": {
+              "role": "link",
+              "name": "Verify",
+              "match": "exact"
+            },
+            "stability_score": 0.85,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "anchor_relative",
+            "params": {
+              "anchor_text": "Verification code",
+              "anchor_role": "cell",
+              "relation": "same_row",
+              "target_role": "link",
+              "index": 0
+            },
+            "stability_score": 0.8,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "anchor_relative",
+            "params": {
+              "anchor_text": "Verification code",
+              "anchor_role": "StaticText",
+              "relation": "same_row",
+              "target_role": "link",
+              "index": 0
+            },
+            "stability_score": 0.8,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "anchor_relative",
+            "params": {
+              "anchor_text": "Verification code",
+              "anchor_role": "cell",
+              "relation": "same_row",
+              "target_role": "link",
+              "index": 0
+            },
+            "stability_score": 0.8,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "anchor_relative",
+            "params": {
+              "anchor_text": "Verification code",
+              "anchor_role": "textbox",
+              "relation": "same_row",
+              "target_role": "link",
+              "index": 0
+            },
+            "stability_score": 0.8,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "anchor_relative",
+            "params": {
+              "anchor_text": "Verify",
+              "anchor_role": "cell",
+              "relation": "following",
+              "target_role": "link",
+              "index": 0
+            },
+            "stability_score": 0.8,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "anchor_relative",
+            "params": {
+              "anchor_text": "Identity verification",
+              "relation": "within_region",
+              "target_role": "link",
+              "index": 0
+            },
+            "stability_score": 0.8,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "region_ordinal",
+            "params": {
+              "region": "Identity verification",
+              "role": "link",
+              "index": 0
+            },
+            "stability_score": 0.55,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          }
+        ]
+      },
+      "value": null,
+      "checkpoint": {
+        "kind": "text_present",
+        "params": {
+          "text": "Verification result"
+        },
+        "negate": false
+      },
+      "timeout_ms": 10000,
+      "risk_class": "safe"
+    },
+    {
+      "id": "read-outcome",
+      "intent": "read whether the identity was verified",
+      "action": "extract",
+      "target": {
+        "role": "cell",
+        "name": "Identity verified",
+        "candidates": [
+          {
+            "strategy": "role_name",
+            "params": {
+              "role": "cell",
+              "name": "Identity verified",
+              "match": "exact"
+            },
+            "stability_score": 0.85,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "anchor_relative",
+            "params": {
+              "anchor_text": "Verification result",
+              "relation": "within_region",
+              "target_role": "cell",
+              "index": 3
+            },
+            "stability_score": 0.6,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          },
+          {
+            "strategy": "region_ordinal",
+            "params": {
+              "region": "Verification result",
+              "role": "cell",
+              "index": 3
+            },
+            "stability_score": 0.35,
+            "verified_unique_at_record": true,
+            "surface_specific": false
+          }
+        ]
+      },
+      "value": null,
+      "checkpoint": null,
+      "timeout_ms": 10000,
+      "risk_class": "safe"
+    }
+  ],
+  "outcomes": [],
+  "policy": {
+    "allowed_hosts": [],
+    "allowed_routes": [],
+    "max_steps": 25,
+    "max_wall_clock_seconds": 300
+  },
+  "provenance": {
+    "discovered_at": "2026-09-10T14:46:57.802118Z",
+    "model": "hand-recorded against the live page",
+    "discovery_run_id": "record-verify",
+    "state": "approved",
+    "approved_by": "aditi",
+    "outcomes_reviewed": true
+  },
+  "stability": null
+}

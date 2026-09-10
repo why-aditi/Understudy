@@ -1,0 +1,62 @@
+Sensitive parameters never reach disk
+==============================================================================
+
+capability : member.verify v1.0.0, the one artifact with a sensitive parameter
+run        : replay-20260910T201706-107cfa
+command    : cua replay --capability member.verify --params '{"code": "<the code>"}'
+
+The verification screen puts its code in a query string on purpose. A secret that
+never reaches a logged field would demonstrate nothing; this one lands in the
+observation url and in ActionResult.url_after, so the filter has to catch it there
+or it reaches disk.
+
+The code is also shaped so the account-, SSN- and card-shaped backstop in
+policy/redaction.py cannot match it. Only the *declared* value redacts it, which is
+the half of the filter that was previously untested by any evidence run.
+
+
+1. THE RUN SUCCEEDED, SO THE VALUE REALLY WAS TYPED
+------------------------------------------------------------------------------
+  status     success
+  outputs    {"verification": "Identity verified"}
+  locators   {"enter-code": "role_name", "submit-verification": "role_name", "read-outcome": "role_name"}
+
+"Identity verified" is only returned for the correct code. A run that had typed
+nothing, or typed a redacted placeholder, would read "Code not recognised".
+
+
+2. THE VALUE APPEARS NOWHERE ON DISK
+------------------------------------------------------------------------------
+  occurrences of the literal code in run.jsonl + result.json : 0
+  occurrences in capabilities/member.verify.json             : 0
+  redaction markers written instead                          : 5
+
+The urls the run recorded, verbatim:
+
+    http://127.0.0.1:8099/tenant-a/members/12345/verified?code=[REDACTED:code]
+    http://127.0.0.1:8099/tenant-a/members/12345/verify
+
+The one ending in ?code= is the url that carried the secret. What reached disk
+was the marker.
+
+
+3. THE ARTIFACT NEVER HELD IT EITHER
+------------------------------------------------------------------------------
+  parameter  code   sensitive=true   example=null
+  step       enter-code  value = ParamRef(param="code")
+
+A sensitive value reaches a step as a reference, so the artifact records that a code
+is needed without recording any code. The example is null because the model nulls it:
+an example of a real verification code is a real verification code.
+
+
+WHAT THIS DOES NOT SHOW
+------------------------------------------------------------------------------
+The browser's own url bar still held the code during the run, and a screenshot would
+have captured it. Screenshots are off by default for exactly that reason, and OCR
+redaction is not in this budget. The guarantee here is about what this system writes,
+not about what the operating system can see.
+
+Reproduce: python -m apps.harness 8099, then
+  cua replay --capability member.verify --params '{"code": "QX7-4412"}'
+and grep the resulting evidence directory for the code.
