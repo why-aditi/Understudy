@@ -19,6 +19,8 @@ from cua.discovery.tools import TOOL_SPECS, Finish, one_call, parse
 from cua.evidence.logger import RunLogger
 from cua.llm.base import LLMClient, LLMResponse, Message
 from cua.policy.engine import PolicyContext, PolicyEngine, PolicyVerdict
+from cua.recording.assemble import ActedStep, assemble
+from cua.recording.synthesizer import SynthesisError
 from cua.surfaces.base import Action, ActionResult, Observation, Surface
 
 StopReason = Literal["goal_reached", "max_steps", "timeout", "no_progress", "escalation_required"]
@@ -64,6 +66,10 @@ class DiscoveryResult(BaseModel):
     evidence_path: Path
     summary: str | None = None
     outputs: dict[str, str] = Field(default_factory=dict)
+    capability_path: Path | None = Field(
+        default=None,
+        description="The draft artifact this run produced, written beside its evidence.",
+    )
 
 
 class DiscoveryRunner:
@@ -86,6 +92,9 @@ class DiscoveryRunner:
         self.config = config
         self._monotonic = monotonic
         self._history: list[Message] = []
+        #: What was acted on, and the tree it was decided from. This is the raw material
+        #: the artifact is assembled from at the end of a successful run.
+        self._acted: list[ActedStep] = []
 
     def run(self) -> DiscoveryResult:
         started = self._monotonic()
@@ -108,6 +117,7 @@ class DiscoveryRunner:
         summary: str | None = None
         outputs: dict[str, str] = {}
         last_hash: str | None = None
+        last_action: str | None = None
         repeats = 0
         stop: StopReason = "max_steps"
 
@@ -120,9 +130,16 @@ class DiscoveryRunner:
                 break
 
             observation = self.surface.observe(screenshot=self.config.screenshots)
-            self._save_screenshot(observation, steps + 1)
-            repeats = repeats + 1 if observation.observation_hash == last_hash else 1
-            last_hash = observation.observation_hash
+            self._save_observation(observation, steps + 1)
+            # A read is not a lack of progress. `extract` deliberately leaves the page where
+            # it was, so counting its unchanged observation makes any capability that reads
+            # two values off one screen undiscoverable - the loop stops before it can finish.
+            # Only actions that were supposed to move the page count towards being stuck.
+            if last_action == "extract":
+                last_hash = observation.observation_hash
+            else:
+                repeats = repeats + 1 if observation.observation_hash == last_hash else 1
+                last_hash = observation.observation_hash
             if repeats >= self.config.no_progress_limit:
                 self.logger.event(
                     "discovery_no_progress",
@@ -145,12 +162,19 @@ class DiscoveryRunner:
                 break
 
             verdict, result = self._execute(decision, observation)
+            last_action = decision.kind
             self._record(steps, observation, reasoning, decision, verdict, result, step_started)
+            if result is not None and result.ok and observation.tree is not None:
+                self._acted.append(
+                    ActedStep(tree=observation.tree, action=decision, extracted=result.extracted)
+                )
 
             if verdict.decision == "block_and_escalate":
                 stop = "escalation_required"
                 break
             self._remember(reasoning, verdict, result)
+
+        artifact = self._emit_capability(stop, outputs) if stop == "goal_reached" else None
 
         duration_ms = int((self._monotonic() - started) * 1000)
         self.logger.event(
@@ -160,6 +184,7 @@ class DiscoveryRunner:
             duration_ms=duration_ms,
             summary=summary,
             outputs=outputs,
+            capability_path=artifact,
         )
         return DiscoveryResult(
             run_id=self.logger.run_id,
@@ -170,7 +195,42 @@ class DiscoveryRunner:
             evidence_path=self.logger.path,
             summary=summary,
             outputs=outputs,
+            capability_path=artifact,
         )
+
+    # ---- the artifact --------------------------------------------------------
+
+    def _emit_capability(self, stop: str, outputs: dict[str, str]) -> Path | None:
+        """Write the draft artifact beside the run that produced it (PRD 10).
+
+        A failure here must not lose the run: the evidence is already on disk and is worth
+        more than the draft. So this reports and returns None rather than raising.
+        """
+        try:
+            capability = assemble(
+                goal=self.config.goal,
+                run_id=self.logger.run_id,
+                model=getattr(self.llm, "model", "unknown"),
+                entry_url=self.config.target,
+                acted=self._acted,
+                tenant_id=self.config.tenant,
+                outputs=outputs,
+            )
+        except (ValueError, SynthesisError) as exc:
+            self.logger.event("capability_not_emitted", why=str(exc), stop_reason=stop)
+            return None
+        path = self.logger.save_artifact(
+            "capability.json", capability.model_dump_json(indent=2).encode("utf-8")
+        )
+        self.logger.event(
+            "capability_emitted",
+            capability_id=capability.id,
+            steps=len(capability.steps),
+            outputs=[o.name for o in capability.outputs],
+            state=capability.provenance.state,
+            path=str(path),
+        )
+        return path
 
     # ---- one iteration -------------------------------------------------------
 
@@ -228,11 +288,23 @@ class DiscoveryRunner:
         if not result.ok:
             raise DiscoveryError(f"could not open {self.config.target!r}: {result.error}")
 
-    def _save_screenshot(self, observation: Observation, step: int) -> None:
-        """Screenshots are evidence on disk, never bytes inside a log record."""
+    def _save_observation(self, observation: Observation, step: int) -> None:
+        """One observation on disk: the tree always, the pixels only if they were captured.
+
+        The AX snapshot is the one that matters. It is what the model actually reasoned over,
+        so a reviewer reconstructing a decision needs it - and unlike a screenshot it costs
+        nothing to share, because it holds no pixels of a servicing screen.
+        """
+        self.logger.save_artifact(
+            f"step-{step:02d}.json",
+            observation.model_dump_json(indent=2).encode("utf-8"),
+            subdir="ax-snapshots",
+        )
         if observation.screenshot is None:
             return
-        path = self.logger.save_artifact(f"step-{step:02d}.png", observation.screenshot)
+        path = self.logger.save_artifact(
+            f"step-{step:02d}.png", observation.screenshot, subdir="screenshots"
+        )
         self.logger.event(
             "screenshot_captured",
             step=step,

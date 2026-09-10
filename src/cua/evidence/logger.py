@@ -131,7 +131,7 @@ class RunLogger:
 
         self.redaction.declare(name, value)
 
-    def save_artifact(self, name: str, data: bytes) -> Path:
+    def save_artifact(self, name: str, data: bytes, subdir: str | None = None) -> Path:
         """Write a binary artifact beside the log and return its path.
 
 
@@ -142,9 +142,11 @@ class RunLogger:
 
         """
 
-        self.directory.mkdir(parents=True, exist_ok=True)
+        directory = self.directory if subdir is None else self.directory / _safe_filename(subdir)
 
-        path = self.directory / _safe_filename(name)
+        directory.mkdir(parents=True, exist_ok=True)
+
+        path = directory / _safe_filename(name)
 
         path.write_bytes(data)
 

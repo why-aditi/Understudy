@@ -98,8 +98,8 @@ cp .env.example .env      # then paste a key into it
 ```
 
 ```bash
-# an LLM drives the app and the run is written to evidence/
-uv run cua discover --goal "Look up member 12345 and read their Savings balance" --target "http://127.0.0.1:8099/tenant-a/" --provider groq --headless
+# an LLM drives the app; the run and the draft artifact land in evidence/
+uv run cua discover --goal "Search for member 12345 and read the member name shown in the results table" --target "http://127.0.0.1:8099/tenant-a/" --provider groq --headless
 
 # an LLM picks a capability by name and calls it with typed args
 uv run python scripts/agent_demo.py
@@ -168,12 +168,26 @@ What is real, and what is not, stated plainly:
 
 `REPORT.md` is the engineering report: what was built, where it is weak, and what was cut.
 
-486 tests, ruff and mypy strict clean, green on every push.
+505 tests, ruff and mypy strict clean, green on every push.
 
-A discovery writes `evidence/discovery-<run_id>/run.jsonl` — one structured record per step,
-carrying the observation hash, the pruning ratio, the model's stated reasoning, the proposed
-action, the policy verdict, the action result and elapsed time. A replay writes
-`evidence/replay-<run_id>/` with both `run.jsonl` and `result.json`.
+A discovery writes `evidence/discovery-<run_id>/`:
+
+```
+run.jsonl        one record per step: observation hash, pruning ratio, the model's stated
+                 reasoning, the proposed action, the policy verdict, the result, elapsed time
+ax-snapshots/    the pruned tree the model actually reasoned over, one per step
+screenshots/     only with --allow-screenshots
+capability.json  the draft artifact the run produced
+```
+
+`capability.json` is the join between the two halves: `recording/assemble.py` turns the trace
+into a `Capability` a human can review and replay. It is emitted as a **draft** — `state=draft`,
+no outcomes, every candidate `verified_unique_at_record=false` — because the model chose those
+controls and nobody has agreed they are the right ones.
+
+A replay writes `evidence/replay-<run_id>/` with `run.jsonl` and `result.json`. Which of the
+three outcome classes a run was is in `result.json`'s `status`, not in the directory name: the
+class is only known once the run ends.
 
 `evidence/` is gitignored, because run output carries captured page state. The runs quoted
 throughout this README are **reproducible from the commands above rather than checked in** — the
@@ -575,7 +589,7 @@ src/cua/
   policy/     PolicyEngine chokepoint, risk rules, redaction filter
   llm/        LLMClient protocol, Gemini, Groq, Ollama, rate limiter
   discovery/  the loop, the closed tool schema, prompts
-  recording/  LocatorSynthesizer, outcome proposal, approval gate
+  recording/  LocatorSynthesizer, trace-to-draft assembly, outcome proposal, approval gate
   schema/     Pydantic capability models, JSON Schema export
   replay/     candidate resolver, condition evaluator, deterministic engine,
               tenant overlay resolution, stability measurement, drift verdicts

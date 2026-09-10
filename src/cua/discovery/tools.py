@@ -31,9 +31,11 @@ class Finish(BaseModel):
 
 class _Target(BaseModel):
     role: str = Field(description="Accessibility role, e.g. button, link, textbox, cell.")
-    name: str = Field(default="", description="Accessible name exactly as shown in the tree.")
-    near: str = Field(
-        default="",
+    name: str | None = Field(
+        default=None, description="Accessible name exactly as shown in the tree."
+    )
+    near: str | None = Field(
+        default=None,
         description=(
             "Text of a nearby element that identifies which one you mean, when several "
             'controls share a role and name. To open the Savings row, use near="Savings" '
@@ -49,8 +51,20 @@ class _Target(BaseModel):
     )
 
     def to_target(self) -> ActionTarget:
+        """Exact by default, because the field above promises the name as shown in the tree.
+
+        Substring matching is a silent footgun on a page with overlapping labels: on the
+        harness search screen a substring click on "Search" resolves to the "Member search"
+        nav link, which points at the same page. The action reports ok, the url does not
+        change, and the loop spends its remaining turns confused. Recorded locators already
+        carry match=exact, which is why replay never hit this and discovery did.
+        """
         return ActionTarget(
-            role=self.role, name=self.name or None, nth=self.nth, near=self.near or None
+            role=self.role,
+            name=self.name or None,
+            nth=self.nth,
+            near=self.near or None,
+            exact=True,
         )
 
 
@@ -98,8 +112,28 @@ def _clean(node: object) -> object:
     return node
 
 
+def _collapse_optional(schema: dict[str, Any]) -> dict[str, Any]:
+    """`anyOf: [{string}, {null}]` becomes `type: [string, null]`.
+
+    An optional field has to be expressible as *absent or null*, because a model asked for
+    "no name" will emit null. Providers validate the emitted arguments against the schema we
+    sent them, and at least one rejects `anyOf` while accepting a type list - so a schema that
+    says `type: string` for an optional field turns a reasonable model output into an HTTP 400
+    the loop never sees coming. Found exactly that way.
+    """
+    variants = schema.get("anyOf")
+    if not isinstance(variants, list) or not all(
+        isinstance(v, dict) and set(v) <= {"type"} and isinstance(v.get("type"), str)
+        for v in variants
+    ):
+        return schema
+    rest = {k: v for k, v in schema.items() if k != "anyOf"}
+    return {**rest, "type": [v["type"] for v in variants]}
+
+
 def _clean_schema(schema: dict[str, Any]) -> dict[str, Any]:
-    return {k: _clean(v) for k, v in schema.items() if k not in _UNSUPPORTED_SCHEMA_KEYS}
+    cleaned = {k: _clean(v) for k, v in schema.items() if k not in _UNSUPPORTED_SCHEMA_KEYS}
+    return _collapse_optional(cleaned)
 
 
 def _spec(name: str, description: str, model: type[BaseModel]) -> ToolSpec:

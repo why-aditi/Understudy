@@ -12,7 +12,7 @@ from cua.discovery.runner import (
     DiscoveryRunner,
     new_run_id,
 )
-from cua.discovery.tools import TOOL_NAMES, ClosedSchemaViolation
+from cua.discovery.tools import TOOL_NAMES, TOOL_SPECS, ClosedSchemaViolation, parse
 from cua.evidence.logger import RunLogger
 from cua.llm.base import LLMResponse, Message, ToolCall, ToolSpec
 from cua.policy.engine import PolicyEngine
@@ -55,7 +55,11 @@ class FakeSurface:
 
     def act(self, action: Action) -> ActionResult:
         self.acted.append(action)
-        if self.advance:
+        # Navigating to the entry point lands you on the first scripted page, it does not
+        # move past it. Advancing here made every scripted click get recorded against the
+        # tree of the *next* page - harmless until something re-derived the target from
+        # that tree, which the capability assembler now does.
+        if self.advance and action.kind != "navigate":
             self.index += 1
         return ActionResult(action=action, ok=True, url_after=self._state()[0], duration_ms=1)
 
@@ -159,6 +163,10 @@ def test_a_goal_is_reached_and_every_step_is_recorded(tmp_path: Path) -> None:
         "policy_check",
         "discovery_step",
         "discovery_step",
+        # The trace declares an output nothing extracted, so the assembler says so rather
+        # than wiring it to an arbitrary step; the draft is still emitted.
+        "assemble_output_unmatched",
+        "capability_emitted",
         "discovery_end",
     ]
 
@@ -183,7 +191,7 @@ def test_each_step_record_carries_the_required_fields(tmp_path: Path) -> None:
     assert step["reasoning"] == "clicking"
     assert step["action"] == {
         "kind": "click",
-        "target": {"role": "button", "name": "Search", "nth": 0, "exact": False, "near": None},
+        "target": {"role": "button", "name": "Search", "nth": 0, "exact": True, "near": None},
         "value": None,
         "timeout_ms": 10000,
     }
@@ -408,7 +416,7 @@ def test_screenshots_are_captured_as_evidence_even_for_a_text_only_model(tmp_pat
 
     shot = next(r for r in records(logger) if r["event"] == "screenshot_captured")
     assert shot["sent_to_model"] is False
-    assert (logger.directory / "step-01.png").read_bytes() == b"\x89PNG"
+    assert (logger.directory / "screenshots" / "step-01.png").read_bytes() == b"\x89PNG"
 
 
 def test_a_vision_model_is_sent_the_screenshot(tmp_path: Path) -> None:
@@ -432,3 +440,66 @@ def test_no_screenshot_is_written_when_capture_is_off(tmp_path: Path) -> None:
 
     assert not any(r["event"] == "screenshot_captured" for r in records(logger))
     assert list(logger.directory.glob("*.png")) == []
+
+
+def test_optional_target_fields_are_declared_nullable() -> None:
+    """A model asked for "no name" emits null, and providers validate what they were sent.
+
+    Declaring these as plain strings turned a reasonable model output into an HTTP 400 from
+    Groq's own tool-call validator, which the loop never gets to see. Found that way.
+    """
+    click = next(spec for spec in TOOL_SPECS if spec.name == "click")
+    properties = click.parameters["properties"]
+
+    assert properties["name"]["type"] == ["string", "null"]
+    assert properties["near"]["type"] == ["string", "null"]
+    assert properties["role"]["type"] == "string", "a required field stays a plain string"
+    assert "anyOf" not in properties["name"], "collapsed, because one provider rejects anyOf"
+
+
+def test_a_null_name_parses_into_a_target_with_no_name() -> None:
+    action = parse(ToolCall(name="click", arguments={"role": "link", "name": None, "near": None}))
+
+    assert isinstance(action, Action)
+    assert action.target is not None
+    assert action.target.name is None
+    assert action.target.near is None
+
+
+def test_a_model_chosen_target_matches_the_name_exactly() -> None:
+    """Substring matching silently picks the wrong control when labels overlap.
+
+    On the harness search screen "Search" is a substring of the "Member search" nav link,
+    which points at the same page: the click reports ok, nothing moves, and the run stalls
+    with no error to explain it. Found on a live run.
+    """
+    action = parse(ToolCall(name="click", arguments={"role": "link", "name": "Search"}))
+
+    assert isinstance(action, Action)
+    assert action.target is not None
+    assert action.target.exact is True
+
+
+def test_repeated_reads_do_not_count_as_being_stuck(tmp_path: Path) -> None:
+    """`extract` is a read: it leaves the page where it was, on purpose.
+
+    Counting its unchanged observation made any capability that reads two values off one
+    screen undiscoverable - the loop stopped for no progress before it could finish. Found
+    on a live run that read the same results row twice.
+    """
+    surface = FakeSurface([page(TARGET, "Search")], advance=False)
+    llm = FakeLLM(
+        [
+            says("read one", "extract", role="button", name="Search"),
+            says("read two", "extract", role="button", name="Search"),
+            says("read three", "extract", role="button", name="Search"),
+            says("done", "finish", summary="read them all"),
+        ]
+    )
+    runner, logger = build(surface, llm, tmp_path)
+
+    with logger:
+        result = runner.run()
+
+    assert result.stop_reason == "goal_reached"
+    assert result.steps == 4

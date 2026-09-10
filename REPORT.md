@@ -6,7 +6,7 @@ versioned capability artifact and replays it deterministically with no model in 
 **Citations.** Three evidence files are committed: `desktop-ax-proof.txt`,
 `tenant-overlay-proof.txt`, `catalog-agent-demo.txt`. The rest of `evidence/` is gitignored because
 run output carries captured page state; those runs are named by id below and reproduce from the
-README's commands. 486 tests, 24 files, ruff and mypy strict clean.
+README's commands. 505 tests, 26 files, ruff and mypy strict clean.
 
 ## Architecture
 
@@ -39,8 +39,22 @@ steps. Chromium's internal roles (`LayoutTableCell`, `LayoutTableRow`) are norma
 the observation boundary; before that fix a replay returned the whole page as the balance and
 reported `status: success`.
 
+`recording/assemble.py` closes the loop between the halves: a discovery trace becomes a draft
+`Capability` written beside its run, so "record once, replay many times" is a pipeline rather
+than a manual step. The draft claims as little as possible - `state=draft`, no outcomes, every
+candidate `verified_unique_at_record=false` - because the trace is over by the time it runs and
+nothing could be re-resolved.
+
 `catalog/catalog.py` is the agent-facing edge: saved artifacts become tool declarations, and a
 tool call becomes a replay. It imports no provider, asserted by a subprocess test.
+
+Two bugs in the discovery loop surfaced only when real runs were made to reach the goal again,
+and both had the same shape - something reported success while nothing happened. Model-chosen
+targets matched names by substring, so a click on `"Search"` resolved to the `"Member search"`
+nav link pointing at the same page: `ok=true`, url unchanged, three turns of confusion. And the
+no-progress detector counted an `extract`, which deliberately leaves the page where it is, so
+any capability reading two values off one screen was undiscoverable. Both now have regression
+tests naming the live run that found them.
 
 ## Artifact schema
 
@@ -77,7 +91,9 @@ Replay walks the candidate chain in rank order and records which one fired
 | hard_failure | `evidence/replay-hard-failure-permission/` | `failure` with candidates tried and an AX snapshot at `failure-read-balance.ax.json` |
 
 A checkpoint that fails with no matching detector is a hard failure, never a silent continue.
-Screenshots are off unless `--allow-screenshots`; failure evidence is the AX snapshot.
+Screenshots are off unless `--allow-screenshots`; failure evidence is the AX snapshot. Which of
+the three classes a run was is in `result.json`'s `status` rather than the directory name, since
+the class is only known once the run ends.
 
 Because replay's decisions come from the artifact and the tree in front of it, the whole path
 runs with no browser and no network: `cua replay --offline` plays a recorded tape from
