@@ -1,0 +1,54 @@
+{
+  "capability_id": "member.search",
+  "capability_version": "1.0.0",
+  "runs": 10,
+  "passes": 10,
+  "measured_at": "2026-09-10T16:42:36.911593Z",
+  "statuses": {
+    "success": 10
+  },
+  "controls": [
+    {
+      "step_id": "enter-id",
+      "primary_strategy": "role_name",
+      "fired": {
+        "role_name": 10
+      },
+      "resolved_runs": 10
+    },
+    {
+      "step_id": "read-name",
+      "primary_strategy": "role_name",
+      "fired": {
+        "role_name": 10
+      },
+      "resolved_runs": 10
+    },
+    {
+      "step_id": "submit-search",
+      "primary_strategy": "role_name",
+      "fired": {
+        "role_name": 10
+      },
+      "resolved_runs": 10
+    }
+  ],
+  "recoveries": {},
+  "drift_signals": [],
+  "durations_ms": [
+    237,
+    183,
+    190,
+    153,
+    145,
+    226,
+    200,
+    192,
+    169,
+    157
+  ],
+  "failures": [],
+  "findings": [
+    "All 10 runs produced the same status and resolved every control through the same candidate."
+  ]
+}

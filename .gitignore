@@ -18,6 +18,16 @@
 !/evidence/replay-business-not-found/
 !/evidence/replay-recoverable-modal/
 !/evidence/replay-hard-failure-permission/
+# The escalation transfer: the intervention raised, the lock handed over, what the human did,
+# and the checkpoint re-verified on resume. Escalation is a core requirement and this is its
+# only demonstration, so it should not be the one run a reviewer cannot open.
+!/evidence/handoff-live-demo/
+# The stability measurement the README quotes, and the drift verdict derived from it. The
+# directory is re-included and then re-emptied so only these two are published.
+!/evidence/stability/
+/evidence/stability/*
+!/evidence/stability/replay-x10.json
+!/evidence/stability/drift-x10.json
 
 # browser artifacts
 .playwright/

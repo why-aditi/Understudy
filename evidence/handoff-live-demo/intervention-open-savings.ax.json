@@ -1,0 +1,18 @@
+{
+  "url": "http://127.0.0.1:8099/tenant-a/members/12345",
+  "title": "Member 12345 - Meridian Core Servicing",
+  "tree": {
+    "role": "RootWebArea",
+    "name": "Member 12345 - Meridian Core Servicing",
+    "value": null,
+    "children": []
+  },
+  "observation_hash": "7db34fc9a81a9adf",
+  "pruning": {
+    "nodes_before": 5,
+    "nodes_after": 1,
+    "rows_collapsed": 0,
+    "values_truncated": 0
+  },
+  "captured_at": "2026-09-10T10:17:25.472175Z"
+}

@@ -3,10 +3,13 @@
 An LLM discovers how to accomplish a goal in a UI. The system records that discovery as a typed,
 versioned capability artifact and replays it deterministically with no model in the decision loop.
 
-**Citations.** Four evidence files are committed: `desktop-ax-proof.txt`,
-`tenant-overlay-proof.txt`, `catalog-agent-demo.txt`, `redaction-proof.txt`. The rest of
-`evidence/` is gitignored because run output carries captured page state; those runs are named
-by id below and reproduce from the README's commands. 527 tests, 26 files, ruff and mypy strict clean.
+**Citations.** Everything cited below is either code in this repo or a run committed under
+`evidence/`: one discovery run with the accessibility trees it reasoned over and the artifact
+it emitted, one replay per outcome class, and four standalone proofs — `evidence/README.md`
+says what each shows. Other run ids appear where a claim came from a run that is not committed;
+those reproduce from the README's commands. 527 tests, 26 files, ruff and mypy strict clean.
+
+---
 
 ## Architecture
 
@@ -33,9 +36,9 @@ That earned its keep: the C2 checker initially counted a `-> PolicyVerdict` retu
 evidence of gating, and now scans only the body and parameters (`tests/test_constraints.py:68`).
 
 Observation is the accessibility tree over CDP `Accessibility.getFullAXTree`, pruned per D3 —
-mean 46% of nodes kept across the six `ax_pruned` records in
-`evidence/discovery-20260910T110803-8bd5f2/run.jsonl`, a run that reached `goal_reached` in six
-steps. Chromium's internal roles (`LayoutTableCell`, `LayoutTableRow`) are normalised to ARIA at
+a mean of 65% of nodes kept across the four `ax_pruned` records in the committed run
+`evidence/discovery-20260910T211157-fb8cb8/`, which reached `goal_reached` in four steps and
+whose pruned trees are checked in beside it under `ax-snapshots/`. Chromium's internal roles (`LayoutTableCell`, `LayoutTableRow`) are normalised to ARIA at
 the observation boundary; before that fix a replay returned the whole page as the balance and
 reported `status: success`.
 

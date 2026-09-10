@@ -236,17 +236,18 @@ so it is a decision rather than an accident.
 A clean discovery looks like this:
 
 ```
-step 1: type    textbox "Member id"
-step 2: click   button  "Search"
-step 3: click   link    "Open"
-step 4: click   link    "Open"  near="Savings"
-step 5: extract cell            near="Current balance" nth=1  -> "4,182.55"
-step 6: finish  outputs={"Current balance": "4,182.55"}
+step 1: type    textbox "Member ID" = "12345"
+step 2: click   link    "Search"
+step 3: extract cell    near="Name" nth=1 -> "Wilhelmina Okonkwo-Bright"
+step 4: finish  outputs={"member_name": "Wilhelmina Okonkwo-Bright"}
 ```
 
-Six steps, six model calls, no wrong turns — the real trace from
-`evidence/discovery-20260910T110803-8bd5f2/`, reproduced verbatim. The harness has since renamed
-two of those labels, which is exactly the drift a tenant overlay has to absorb.
+Four steps, four model calls, no wrong turns — the real trace from the committed run
+[`evidence/discovery-20260910T211157-fb8cb8/`](evidence/discovery-20260910T211157-fb8cb8),
+reproduced verbatim. Step 3 is the interesting one: `near="Name"` scopes to the tightest
+container that actually holds a cell, which is the results table rather than the header row the
+anchor sits in. An earlier build resolved that to a nav link instead, and the model burned two
+turns recovering — the same target now lands first time.
 
 And a replay returns a typed result rather than a string to parse:
 

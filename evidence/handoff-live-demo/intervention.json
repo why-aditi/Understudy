@@ -1,0 +1,32 @@
+{
+  "run_id": "handoff-live-demo",
+  "reason": "stuck",
+  "step_id": "open-savings",
+  "message": "The detail screen is a frameset; no candidate resolved.",
+  "requested_at": "2026-09-10T10:17:25.472796Z",
+  "capability_id": "member.savings_balance.read",
+  "capability_version": null,
+  "goal": null,
+  "url": "http://127.0.0.1:8099/tenant-a/members/12345",
+  "ax_snapshot_path": "evidence\\handoff-live-demo\\intervention-open-savings.ax.json",
+  "screenshot_ref": null,
+  "lock": {
+    "session_id": "handoff-live-demo",
+    "holder": "automation",
+    "acquired_at": "2026-09-10T10:17:25.284182Z",
+    "acquired_by": "handoff-live-demo"
+  },
+  "resolved_at": "2026-09-10T10:17:25.692502Z",
+  "resumed_by": "operator",
+  "human_actions": [
+    {
+      "kind": "click",
+      "at": "2026-09-10T10:17:25.642476Z",
+      "frame": "accounts",
+      "role": "link",
+      "name": "Open",
+      "url": null,
+      "value_length": null
+    }
+  ]
+}

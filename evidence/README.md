@@ -42,6 +42,30 @@ class is only known once the run ends.
 | `replay-recoverable-modal/` | `success` | an unexpected interstitial detected, recovered from, and recorded in `drift_signals` |
 | `replay-hard-failure-permission/` | `failure` | stopped with `FailureDetail` — the step, what was expected, what was observed, every candidate tried — plus `failure-read-balance.ax.json`, the accessibility snapshot of the screen it died on |
 
+## The escalation transfer
+
+**`handoff-live-demo/`** — a run that stopped at the frameset detail screen, wrote its
+intervention, released the lock to a human, captured what they did, and re-verified the step's
+checkpoint on resume.
+
+| | |
+|---|---|
+| `intervention.json` | why it stopped, which capability and step, the url, the lock state, and who resumed it |
+| `intervention-open-savings.ax.json` | the accessibility snapshot the operator console showed |
+| `run.jsonl` | `escalated`, `intervention_written`, `lock_released`, `human_capture_started`, `human_action`, `resumed`, `resume_reverified` — in that order |
+
+The captured action records `frame: "accounts"`. That is the point: capture is injected per
+frame and re-injected on every navigation, and a listener on the top document alone would have
+recorded nothing while appearing to work. Typed values never cross the boundary — the page-side
+listener reports `value_length` and nothing else.
+
+## Stability
+
+**`stability/replay-x10.json`** and **`stability/drift-x10.json`** — `member.search` replayed
+ten times: 10/10, deterministic, every control resolving through its recorded primary, and a
+drift verdict with no signals. Replay costs no model calls, which is the only reason measuring
+determinism ten times over is affordable.
+
 ## The four standalone proofs
 
 Each is generated from a real run rather than written by hand.
