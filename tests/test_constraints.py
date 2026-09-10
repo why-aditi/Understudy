@@ -301,3 +301,42 @@ def test_the_replay_engine_takes_no_llm_collaborator() -> None:
         "monotonic",
         "sleep",
     }
+
+
+# --- C1: the session outlives the run, so a run may not own a browser -------------------
+
+# Launching or closing a browser is ownership. A run that does either cannot hand the same
+# live window to a human, which is the entire requirement.
+BROWSER_OWNERSHIP = ("sync_playwright", "chromium.launch", "close_all", ".open(")
+
+RUN_MODULES = ("discovery", "replay", "recording")
+
+
+def _owns_a_browser(source: str) -> list[str]:
+    return [marker for marker in BROWSER_OWNERSHIP if marker in source]
+
+
+def test_c1_no_run_module_creates_or_closes_a_browser() -> None:
+    """C1: runs attach to a session held by the registry; they never own one."""
+    offenders = []
+    for package in RUN_MODULES:
+        for path in sorted((SRC / package).rglob("*.py")):
+            found = _owns_a_browser(path.read_text(encoding="utf-8"))
+            if found:
+                offenders.append(f"{path.relative_to(SRC.parents[1])} uses {found}")
+    assert not offenders, "; ".join(offenders)
+
+
+def test_only_the_registry_launches_browsers() -> None:
+    """One place creates browsers, so there is one place that can hand one over."""
+    launchers = [
+        path.relative_to(SRC.parents[1]).as_posix()
+        for path in sorted(SRC.rglob("*.py"))
+        if "sync_playwright" in path.read_text(encoding="utf-8")
+    ]
+    assert launchers == ["src/cua/session/registry.py"], launchers
+
+
+def test_the_c1_checker_would_notice_a_run_launching_its_own_browser() -> None:
+    assert _owns_a_browser("with sync_playwright() as p: ...") == ["sync_playwright"]
+    assert _owns_a_browser("surface.act(action)") == []

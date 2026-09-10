@@ -7,6 +7,7 @@ from typing import Any, cast
 from playwright.sync_api import CDPSession, Locator, Page
 from playwright.sync_api import Error as PlaywrightError
 
+from cua.session.lock import ControlLock, LockError
 from cua.surfaces.base import Action, ActionResult, ActionTarget, AXNode, Observation
 from cua.surfaces.pruning import observation_hash, prune
 
@@ -38,9 +39,12 @@ _NEEDS_VALUE = frozenset({"navigate", "type", "select", "press_key"})
 class WebSurface:
     """Drives an already-open Playwright page. Reads the AX tree; never a DOM selector (C3)."""
 
-    def __init__(self, page: Page) -> None:
+    def __init__(self, page: Page, lock: ControlLock | None = None) -> None:
         self._page = page
         self._cdp: CDPSession | None = None
+        # A surface with no lock may observe but never act. That is stricter than a default
+        # open lock would be: there is no way to act without someone holding control.
+        self._lock = lock
 
     # ---- observe -------------------------------------------------------------
 
@@ -100,6 +104,14 @@ class WebSurface:
         started = time.monotonic()
         error: str | None = None
         extracted: str | None = None
+
+        # C1: whoever is driving must hold the lock on this session. Checked before the
+        # action is even inspected, so no path reaches the page without it.
+        if self._lock is None:
+            raise LockError(
+                "this surface has no session lock and is read-only; attach it to a session"
+            )
+        self._lock.require("automation")
 
         if action.kind in _NEEDS_TARGET and action.target is None:
             error = f"{action.kind} requires a target"

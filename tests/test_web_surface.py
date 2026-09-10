@@ -6,6 +6,7 @@ import pytest
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import Page
 
+from cua.session.lock import ControlLock
 from cua.surfaces.base import Action, ActionTarget, Surface
 from cua.surfaces.web import WebSurface
 
@@ -95,7 +96,8 @@ class FakePage:
 
 
 def surface(page: FakePage) -> WebSurface:
-    return WebSurface(cast(Page, page))
+    """A surface holding the lock, as a run that attached to a session would."""
+    return WebSurface(cast(Page, page), ControlLock.for_automation("test"))
 
 
 def test_web_surface_satisfies_the_protocol() -> None:
@@ -275,7 +277,7 @@ class NearPage:
 
 
 def near_surface(page: NearPage) -> WebSurface:
-    return WebSurface(cast(Page, page))
+    return WebSurface(cast(Page, page), ControlLock.for_automation("test"))
 
 
 def test_near_prefers_the_tightest_container() -> None:

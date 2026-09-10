@@ -14,6 +14,7 @@ from playwright.sync_api import Page, sync_playwright
 from cua.recording.synthesizer import SynthesisError, score, synthesize, synthesize_unverified
 from cua.replay.resolver import dom_hint_count, matches, walk
 from cua.schema.models import SURFACE_SPECIFIC_SCORE_CAP, Locator
+from cua.session.lock import ControlLock
 from cua.surfaces.base import ActionTarget, AXNode
 from cua.surfaces.web import WebSurface
 
@@ -441,7 +442,7 @@ def test_a_synthesised_candidate_can_actually_be_acted_on(page: Page) -> None:
     descriptor = synthesize(tree, ActionTarget(role="cell", near="Savings Balance", nth=1))
 
     resolution = Resolver().resolve(tree, descriptor)
-    surface = WebSurface(page)
+    surface = WebSurface(page, ControlLock.for_automation("test"))
     result = surface.act(
         Action(kind="extract", target=to_action_target(resolution.locator, descriptor))
     )
@@ -461,7 +462,7 @@ def test_every_actionable_candidate_acts_on_the_same_node(page: Page) -> None:
 
     tree = tree_for(page, CARD_FOR_ACTING)
     descriptor = synthesize(tree, ActionTarget(role="cell", near="Savings Balance", nth=1))
-    surface = WebSurface(page)
+    surface = WebSurface(page, ControlLock.for_automation("test"))
 
     actionable = [c for c in descriptor.candidates if can_act_through(c)]
     assert actionable, "the whole chain was unactionable"

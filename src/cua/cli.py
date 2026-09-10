@@ -72,8 +72,14 @@ def discover(
         raise typer.BadParameter(f"unknown provider {provider!r}; use gemini or groq")
 
     with RunLogger(run_id) as run_log, SessionRegistry(headless=headless) as sessions:
+        # The CLI owns the registry, so the CLI opens the session. The run only attaches to
+        # it, and never closes it: that inversion is the whole of C1.
+        sessions.open(run_id)
+        session = sessions.attach(run_id)
+        session.lock.acquire("automation", by=run_id)
+
         runner = DiscoveryRunner(
-            surface=WebSurface(sessions.attach(run_id)),
+            surface=WebSurface(session.page, session.lock),
             llm=llm,
             policy=engine,
             logger=run_log,
@@ -124,8 +130,12 @@ def replay(
     engine = PolicyEngine(load_policy())
 
     with RunLogger(run_id) as run_log, SessionRegistry(headless=headless) as sessions:
-        page = sessions.attach(run_id)
-        surface = WebSurface(page)
+        sessions.open(run_id)
+        session = sessions.attach(run_id)
+        session.lock.acquire("automation", by=run_id)
+
+        page = session.page
+        surface = WebSurface(page, session.lock)
         # The entry point is an action like any other, so it goes through the chokepoint.
         entry = Action(kind="navigate", value=artifact.entry.url)
         verdict = engine.check(entry, PolicyContext(mode="replay", capability_id=artifact.id))
