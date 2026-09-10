@@ -6,7 +6,7 @@ from typer.testing import CliRunner
 
 from cua.cli import app
 
-COMMANDS = ["discover", "replay", "review", "stability", "operator"]
+COMMANDS = ["discover", "replay", "review", "stability", "catalog", "operator"]
 
 runner = CliRunner()
 
@@ -128,3 +128,24 @@ def test_a_stale_overlay_is_refused_before_a_browser_is_launched() -> None:
     assert "overlay needs review" in result.output
     assert "verified against 0.9.0" in result.output
     assert "--attended" in result.output, "the way forward is named, not just the refusal"
+
+
+def test_catalog_lists_only_approved_capabilities() -> None:
+    """What an agent is handed. Every listed tool must be callable by definition."""
+    result = runner.invoke(app, ["catalog"])
+    assert result.exit_code == 0
+    assert "member.search" in result.output
+    assert "member_id: string" in result.output, "arguments are typed in the listing"
+    assert "-> member_name: string" in result.output, "so are the returns"
+
+
+def test_catalog_json_emits_the_raw_tool_declarations() -> None:
+    import json as _json
+
+    result = runner.invoke(app, ["catalog", "--json"])
+    assert result.exit_code == 0
+    tools = _json.loads(result.output)
+    assert tools, "the repo ships at least one approved capability"
+    for tool in tools:
+        assert tool["input_schema"]["additionalProperties"] is False
+        assert tool["output_schema"]["properties"]["status"]["enum"]

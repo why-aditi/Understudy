@@ -28,7 +28,7 @@ This is an in-progress take-home build. What is real, and what is not, stated pl
 | `escalation/` — intervention, lock transfer, human capture, resume, console | **built**, exercised through a real frameset |
 | `session/` — registry owning browsers, `ControlLock` | **built**, in-process only |
 | `evidence/` — JSONL run log, screenshots, `result.json` | **built** |
-| `catalog/` — capabilities as callable typed tools | **not yet implemented** |
+| `catalog/` — capabilities as callable typed tools | **built**, an LLM calls one end to end |
 | overlay resolution — one artifact across two tenants | **built**, replays on tenant-b with no re-recording |
 | drift detection — non-primary hits and new recoveries demote to draft | **built**, measured on a real fallback |
 | `surfaces/desktop.py`, `llm/ollama.py` | **interface only**, deliberately |
@@ -36,12 +36,14 @@ This is an in-progress take-home build. What is real, and what is not, stated pl
 
 So: a capability can be recorded from a live application, reviewed by a human, replayed
 deterministically with no model in the loop, specialised for a second tenant by a diff
-rather than a copy, watched for drift, and handed to a human and back when it gets stuck.
-What is missing is the catalog that exposes capabilities as agent-callable tools.
+rather than a copy, watched for drift, handed to a human and back when it gets stuck, and
+handed to an agent as a typed callable tool.
+
+The remaining gaps are the ones named under each heading below, not missing modules.
 
 Every CLI subcommand is implemented.
 
-434 tests, ruff and mypy strict clean, green on every push.
+462 tests, ruff and mypy strict clean, green on every push.
 
 ---
 
@@ -70,7 +72,10 @@ uv run cua review --capability member.search
 # 3. replay: deterministic, no model in the decision loop
 uv run cua replay --capability member.search --params '{"member_id": "12345"}'
 
-# 4. operator: the console that shows a stalled run and hands control back
+# 4. catalog: the same capability, as a typed tool an agent can call
+uv run cua catalog
+
+# 5. operator: the console that shows a stalled run and hands control back
 uv run cua operator
 ```
 
@@ -84,7 +89,8 @@ the caller was told.
 throughout this README are **reproducible from the commands above rather than checked in** —
 the run ids name real directories on the machine they were produced on, not paths in this
 repo. The single exception is `evidence/desktop-ax-proof.txt`, which contains no application
-state and is committed, as is `evidence/tenant-overlay-proof.txt`.
+state and is committed, as are `evidence/tenant-overlay-proof.txt` and
+`evidence/catalog-agent-demo.txt`.
 
 A clean discovery looks like this:
 
@@ -290,6 +296,80 @@ fix in the synthesizer.
 
 ---
 
+## An agent calling a capability
+
+The catalog turns a directory of artifacts into a tool list a model can be handed, and turns
+the model's tool call back into a deterministic replay. The division of labour is the entire
+thesis, so it is worth stating exactly:
+
+> the model chooses **which** capability to call, and **what arguments** to pass.
+> the model does not decide a single action **inside** that capability.
+
+Argument types come from the capability's `Parameter` list, result types from its
+`OutputSpec` list, and the result schema describes the whole `ReplayResult` envelope rather
+than just the payload — an agent has to be able to tell "no such member" from "the automation
+broke" without parsing a message.
+
+```bash
+cua catalog          # what an agent would be handed
+cua catalog --json   # the raw tool declarations
+```
+
+Only **approved** capabilities are listed. An agent calling a tool unsupervised *is* the
+unattended case, so it is the same `replayable_unattended` gate that governs unattended
+replay and overlay staleness, not a fourth rule.
+
+The catalog imports no provider. Assembling a specific model's tool format is a caller's job,
+which is why `scripts/agent_demo.py` is thirty lines of adapter and not a dependency.
+
+### The demo
+
+`uv run python scripts/agent_demo.py` against the live harness, with `gpt-oss-120b` on Groq's
+free tier. Neither question names a capability, a parameter, or an id field:
+
+```
+user  : "Who is member 12345?"
+model : calls member.search({"member_id": "12345"})
+replay: status=success  steps=3
+        outputs={"member_name": "Wilhelmina Okonkwo-Bright"}
+        locators={"enter-id": "role_name", "submit-search": "role_name", "read-name": "role_name"}
+        model calls during replay: 0
+model : "Member 12345 is Wilhelmina Okonkwo-Bright."
+
+user  : "And can you look up member 99999 as well?"
+model : calls member.search({"member_id": "99999"})
+replay: status=business_outcome  steps=2
+        outcome=member_not_found (business)
+        model calls during replay: 0
+model : "Member 99999 was not found."
+```
+
+**`model calls during replay: 0` is measured, not asserted.** The provider is wrapped in a
+counter and the count is read either side of every tool call, so if a single model call
+happened inside `catalog.call` the demo would print it. Four calls in total across the
+session: two to choose a tool, two to phrase an answer.
+
+The second exchange is the one worth dwelling on. `member_not_found` reaches the model as a
+typed business outcome, and it answers the user's question rather than reporting an error —
+which is what the three-class taxonomy buys, all the way out to the agent.
+
+The demo also exercises the refusals directly, because a model cannot be relied on to produce
+them on demand and they are what stands between a hallucinated tool call and a live browser:
+
+```
+  listed as callable                 2 approved, 0 once approval is withdrawn
+  a capability that does not exist   UnknownTool: no capability named 'member.teleport'
+  a misspelled argument              CatalogError: unknown parameter(s) ['membre_id']
+  a missing required argument        CatalogError: missing required parameter(s) ['member_id']
+  calling an unapproved capability   NotApproved: state=draft ...
+```
+
+Full transcript in `evidence/catalog-agent-demo.txt`.
+
+**What this is not.** One provider, one process, no streaming, no parallel tool calls, and
+the result goes back to the model as user content because `Message` carries no
+`tool_call_id`. Threading that through is the obvious next step and is not interesting.
+
 ## One capability, two tenants
 
 tenant-b is the same app under a different config: rebranded, "Member ID" renamed to
@@ -425,7 +505,7 @@ src/cua/
   replay/     candidate resolver, condition evaluator, deterministic engine,
               tenant overlay resolution, stability measurement, drift verdicts
   escalation/ intervention record, handoff, capture, mocked operator console
-  catalog/    capability catalog                             (stub)
+  catalog/    discovery, tool-schema generation, typed invocation by name
   evidence/   JSONL logger with redaction
 apps/harness/ fault-injection target app, tenant-a and tenant-b
 capabilities/ saved artifacts, tenant overlays, and the exported JSON Schema

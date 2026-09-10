@@ -1,4 +1,4 @@
-"""Typer entry point exposing the discover, replay, review, stability, and operator commands."""
+"""Typer entry point: discover, replay, review, stability, catalog and operator."""
 
 from typing import Annotated
 
@@ -424,3 +424,45 @@ def operator(
     typer.echo(f"operator console on http://{host}:{port}  (evidence: {Path(EVIDENCE_ROOT)})")
     typer.echo("No authentication: bind to localhost only.")
     serve(host=host, port=port, evidence_root=Path(EVIDENCE_ROOT))
+
+
+@app.command()
+def catalog(
+    as_json: Annotated[
+        bool, typer.Option("--json", help="Emit the raw tool declarations.")
+    ] = False,
+) -> None:
+    """List approved capabilities as the callable tools an agent would be handed.
+
+    Only approved capabilities appear: an agent calling a tool unsupervised is the
+    unattended case, so it is the same gate that governs unattended replay.
+    """
+    import json
+
+    from cua.catalog.catalog import Catalog
+
+    def unused(*_: object) -> None:  # pragma: no cover - listing never invokes
+        raise AssertionError("listing does not call anything")
+
+    tools = Catalog.from_directory(unused).tools()  # type: ignore[arg-type]
+
+    if as_json:
+        typer.echo(json.dumps([tool.model_dump(mode="json") for tool in tools], indent=2))
+        return
+
+    if not tools:
+        typer.echo("No approved capabilities. Run `cua review` to approve one.")
+        return
+
+    for tool in tools:
+        typer.echo(f"{tool.name}  v{tool.capability_version}  (tenant={tool.tenant_id})")
+        typer.echo(f"  {tool.description}")
+        required = set(tool.input_schema.get("required", []))
+        for name, spec in tool.input_schema["properties"].items():
+            mark = "*" if name in required else " "
+            kind = spec.get("format") or spec["type"]
+            typer.echo(f"    {mark} {name}: {kind}  - {spec['description']}")
+        outputs = tool.output_schema["properties"]["outputs"]["anyOf"][0]["properties"]
+        for name, spec in outputs.items():
+            typer.echo(f"    -> {name}: {spec['type']}  - {spec['description']}")
+        typer.echo("")
