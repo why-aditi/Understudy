@@ -39,6 +39,8 @@ from cua.schema.models import (
     Step,
 )
 
+REPO = Path(__file__).resolve().parents[1]
+
 
 def locator(strategy: str = "role_name", score: float = 0.9, **params: object) -> Locator:
     return Locator(
@@ -470,3 +472,21 @@ def test_pass_rate_handles_a_record_with_no_runs() -> None:
     empty = StabilityRecord(runs=0, passes=0, measured_at=datetime.now(UTC))
     assert empty.pass_rate == 0.0
     assert StabilityRecord(runs=10, passes=9, measured_at=datetime.now(UTC)).pass_rate == 0.9
+
+
+# ---- the committed contract must match the models ---------------------------------------
+
+
+@pytest.mark.parametrize("name", sorted(EXPORTED))
+def test_the_exported_schema_on_disk_is_not_stale(name: str) -> None:
+    """The schema files are the published contract, so they cannot drift from the models.
+
+    Without this, editing a model and forgetting to re-export leaves a contract on disk that
+    describes an artifact the code no longer produces - and nothing would notice.
+    """
+    path = REPO / "capabilities" / "schema" / f"{name}.schema.json"
+    assert path.exists(), f"{path} is missing; run cua.schema.export.write()"
+    on_disk = json.loads(path.read_text(encoding="utf-8"))
+    assert on_disk == json_schema(EXPORTED[name]), (
+        f"{path.name} is stale; regenerate it with cua.schema.export.write()"
+    )

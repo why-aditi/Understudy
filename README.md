@@ -18,23 +18,28 @@ This is an in-progress take-home build. What is real, and what is not, stated pl
 
 | Area | State |
 |---|---|
-| `surfaces/` — AX-tree observation, D3 pruning, role+name+`near` acting | **built, exercised against a live browser** |
+| `surfaces/` — AX-tree observation, D3 pruning, role+name+`near` acting | **built**, exercised against a live browser |
 | `policy/` — allowlist, risk classification, redaction filter | **built** |
-| `llm/` — provider protocol, Gemini, Groq, rate limiter | **built, exercised against a live provider** |
-| `discovery/` — the observe/decide/act loop, closed tool schema | **built, completes a real multi-step goal** |
-| `evidence/` — JSONL run log, screenshot artifacts | **built** |
+| `llm/` — provider protocol, Gemini, Groq, rate limiter | **built**, exercised against a live provider |
+| `discovery/` — the observe/decide/act loop, closed tool schema | **built**, completes a real multi-step goal |
 | `schema/` — the capability artifact and its JSON Schema export | **built** |
-| `recording/synthesizer` — ranked, verified locator candidates | **built, verified against real markup** |
-| `replay/resolver` — candidate matching across all five strategies | **built** |
-| `session/` — registry holding long-lived browsers | **minimal**: in-process only |
-| `replay/engine`, `recording/outcomes`, `escalation/`, `catalog/` | **not yet implemented** — module stubs |
+| `recording/` — locator synthesis, outcome proposal, human approval gate | **built** |
+| `replay/` — candidate resolver, condition evaluator, deterministic engine | **built**, replays a real capability with no model |
+| `escalation/` — intervention, lock transfer, human capture, resume, console | **built**, exercised through a real frameset |
+| `session/` — registry owning browsers, `ControlLock` | **built**, in-process only |
+| `evidence/` — JSONL run log, screenshots, `result.json` | **built** |
+| `catalog/` — capabilities as callable typed tools | **not yet implemented** |
+| overlay resolution — one artifact across two tenants | **not yet implemented** |
+| `surfaces/desktop.py`, `llm/ollama.py` | **interface only**, deliberately |
 
-So: discovery works end to end and produces evidence, the artifact it should emit is defined
-and enforced, and a control can be described by a ranked chain of verified locators. What is
-missing is the executor that walks that chain with no model in the loop. `cua replay`,
-`review`, `stability` and `operator` raise `NotImplementedError` today.
+So: a capability can be recorded from a live application, reviewed by a human, replayed
+deterministically with no model in the loop, and handed to a human and back when it gets
+stuck. What is missing is the catalog that exposes capabilities as agent-callable tools, and
+the overlay that lets one artifact serve two tenants.
 
-205 tests, ruff and mypy strict clean, green on every push.
+`cua stability` still raises `NotImplementedError`.
+
+376 tests, ruff and mypy strict clean, green on every push.
 
 ---
 
@@ -46,22 +51,34 @@ uv run playwright install chromium
 cp .env.example .env          # add GEMINI_API_KEY and/or GROQ_API_KEY (both free, no card)
 ```
 
-Start the target app, then run a discovery:
+Start the target app, then run the loop:
 
 ```bash
 uv run python -m apps.harness 8099
 
+# 1. discover: an LLM drives the app and the run is written to evidence/
 uv run cua discover \
-  --goal "Look up member 12345 and read the current balance of their Savings sub-account" \
+  --goal "Look up member 12345 and read their Savings balance" \
   --target "http://127.0.0.1:8099/tenant-a/" \
   --provider groq --headless --allow-screenshots
+
+# 2. review: a model proposes outcomes; a human accepts, edits or rejects each one
+uv run cua review --capability member.search
+
+# 3. replay: deterministic, no model in the decision loop
+uv run cua replay --capability member.search --params '{"member_id": "12345"}'
+
+# 4. operator: the console that shows a stalled run and hands control back
+uv run cua operator
 ```
 
-That writes `evidence/discovery-<run_id>/run.jsonl` — one structured record per step, carrying
-the observation hash, the pruning ratio, the model's stated reasoning, the proposed action, the
-policy verdict, the action result and elapsed time.
+A discovery writes `evidence/discovery-<run_id>/run.jsonl` — one structured record per step,
+carrying the observation hash, the pruning ratio, the model's stated reasoning, the proposed
+action, the policy verdict, the action result and elapsed time. A replay writes
+`evidence/replay-<run_id>/` with both `run.jsonl` and `result.json`: how it went, and what
+the caller was told.
 
-A clean run looks like this:
+A clean discovery looks like this:
 
 ```
 step 1: type    textbox "Member id"
@@ -76,6 +93,19 @@ Six steps, six model calls, no wrong turns. That is the real trace from
 `evidence/discovery-20260910T110803-8bd5f2/`, reproduced verbatim; the harness has since
 renamed two of those labels (`Member ID`, `Savings Balance`), which is exactly the drift a
 tenant overlay has to absorb.
+
+And a replay returns a typed result rather than a string to parse:
+
+```
+$ cua replay --capability member.search --params '{"member_id": "12345"}'
+  status: success            outputs: {"member_name": "Wilhelmina Okonkwo-Bright"}
+
+$ cua replay --capability member.search --params '{"member_id": "99999"}'
+  status: business_outcome   outcome: member_not_found
+```
+
+The second is not an error. "No such member" is an answer the caller asked for, and telling
+it apart from "the automation broke" without parsing a message is the point of the artifact.
 
 ---
 
@@ -129,19 +159,53 @@ against a desktop AX tree with the same code.
 
 ## Four architectural constraints
 
-Violating any of these is a bug, not a style choice. Two are enforced by tests that read the
-source, not by convention.
+Violating any of these is a bug, not a style choice. **All four are enforced by tests that
+read the source**, not by convention.
 
-- **C1 — the session outlives the run.** A human takes control of the *same live session*, so
-  runs attach to a browser held by `SessionRegistry`; they never launch or close their own.
-- **C2 — one action chokepoint.** Every action passes `PolicyEngine.check()` before touching a
-  surface. *Enforced:* an AST test fails on any `Surface.act()` call whose function never
+- **C1 — the session outlives the run.** `SessionRegistry.open()` creates a session and
+  belongs to whoever owns the registry; `attach()` only ever returns one that already
+  exists, so a run cannot create a browser by asking for it, and never closes one.
+  *Enforced:* no module under `discovery/`, `replay/` or `recording/` may launch or close a
+  browser, and `sync_playwright` appears in exactly one file in the tree.
+- **C2 — one action chokepoint.** Every action passes `PolicyEngine.check()` before touching
+  a surface. *Enforced:* an AST test fails on any `Surface.act()` call whose function never
   obtained a `PolicyVerdict`.
 - **C3 — no surface-specific locator is ever a primary strategy.** Role, name and containment
-  lead; a DOM hint is a terminal fallback. *Enforced twice:* the selector-API test above, and
-  the schema itself, which derives `surface_specific` from the strategy and caps its score.
-- **C4 — replay makes zero model calls.** `ReplayEngine` will take no `LLMClient` in its
-  dependency graph. To be enforced structurally when replay lands.
+  lead; a DOM hint is a terminal fallback. *Enforced twice:* no file under `surfaces/` may
+  mention `query_selector`, `evaluate`, `css=` or `xpath=`, and the schema itself derives
+  `surface_specific` from the strategy and caps its score at 0.3.
+- **C4 — replay makes zero model calls.** *Enforced three ways:* a static import-graph walk
+  finds no `cua.llm` reachable from `cua.replay.engine`; a subprocess imports the engine and
+  asserts no `cua.llm` module ends up in `sys.modules`; and the constructor is checked to
+  take no LLM collaborator.
+
+Each checker is itself tested against a deliberately violating fixture, so none of them can
+pass vacuously.
+
+On top of the four, a fifth guard: an AST test fails the build if a structured log field
+shadows a `LogRecord` attribute. That one is invisible until a handler puts the logger at
+INFO, and then it is fatal — it was found the hard way.
+
+---
+
+## Handing control to a human
+
+A run that cannot proceed writes an `InterventionRequest` to its evidence directory —
+reason, capability, step, url, and the accessibility snapshot of the screen it stopped on —
+and *then* releases the lock. That order matters: releasing first would leave a window a
+human could take over with no record of why.
+
+While the human holds the lock the session records what they do, injected **per frame and
+re-applied on every navigation**. The harness's detail screen is a frameset, and a listener
+installed only on the top document would record nothing at all while appearing to work.
+Typed values never cross the boundary: the page-side listener reports the *length* of an
+input and nothing else, so there is no redaction step to forget.
+
+`cua operator` serves a console showing the pending request and a Resume button. The console
+is the mocked part and says so at the top of its own source. It never touches the lock — it
+writes a signal, and the run decides when to take control back, then **re-verifies the
+step's checkpoint** before continuing, because a human fixing a stuck run may leave the
+application two screens from where the run expected it.
 
 ---
 
@@ -187,14 +251,14 @@ missing or malformed policy file is an error, never a permissive default.
 ```
 src/cua/
   surfaces/   Surface protocol, WebSurface (AX via CDP), pruning, desktop stub
-  session/    SessionRegistry, ControlLock
+  session/    SessionRegistry (owns browsers), ControlLock
   policy/     PolicyEngine chokepoint, risk rules, redaction filter
   llm/        LLMClient protocol, Gemini, Groq, Ollama, rate limiter
   discovery/  the loop, the closed tool schema, prompts
-  recording/  LocatorSynthesizer; outcome proposal          (outcomes: stub)
+  recording/  LocatorSynthesizer, outcome proposal, approval gate
   schema/     Pydantic capability models, JSON Schema export
-  replay/     candidate resolver; executor, conditions       (engine: stub)
-  escalation/ intervention, handoff, operator console        (stub)
+  replay/     candidate resolver, condition evaluator, deterministic engine
+  escalation/ intervention record, handoff, capture, mocked operator console
   catalog/    capability catalog                             (stub)
   evidence/   JSONL logger with redaction
 apps/harness/ fault-injection target app, tenant-a and tenant-b

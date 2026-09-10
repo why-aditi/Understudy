@@ -54,3 +54,29 @@ def test_discover_is_wired_to_the_runner() -> None:
     """discover is implemented, so it fails on a real precondition, not NotImplementedError."""
     result = runner.invoke(app, ["discover", "--goal", "g", "--target", "http://localhost:8080"])
     assert not isinstance(result.exception, NotImplementedError)
+
+
+# ---- caller mistakes are messages, not stack traces ------------------------------------
+
+
+def test_a_missing_capability_is_a_clean_error() -> None:
+    result = runner.invoke(app, ["replay", "--capability", "nope.does.not.exist"])
+    assert result.exit_code == 2
+    assert "cannot read capability" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_malformed_params_are_a_clean_error() -> None:
+    result = runner.invoke(app, ["replay", "--capability", "member.search", "--params", "not json"])
+    assert result.exit_code == 2
+    assert "not valid JSON" in result.output
+
+
+def test_an_unknown_parameter_is_refused_before_a_browser_is_launched() -> None:
+    """A caller's typo should cost nothing: no session, no browser, no evidence directory."""
+    result = runner.invoke(
+        app,
+        ["replay", "--capability", "member.search", "--params", '{"wrong": "x"}'],
+    )
+    assert result.exit_code == 2
+    assert "unknown parameter(s) ['wrong']" in result.output

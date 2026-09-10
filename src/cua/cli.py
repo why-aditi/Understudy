@@ -43,11 +43,13 @@ def discover(
     ] = "gemini",
 ) -> None:
     """Run the LLM observe/decide/act loop and emit a draft capability artifact."""
-    from cua.discovery.runner import DiscoveryConfig, DiscoveryRunner, new_run_id
+    from cua.discovery.runner import DiscoveryConfig, DiscoveryError, DiscoveryRunner, new_run_id
+    from cua.discovery.tools import ClosedSchemaViolation
     from cua.evidence.logger import RunLogger
     from cua.llm.base import LLMClient
     from cua.llm.gemini import GeminiClient
     from cua.llm.groq import GroqClient
+    from cua.llm.limiter import LLMError
     from cua.policy.engine import PolicyEngine
     from cua.policy.rules import load_policy
     from cua.session.registry import SessionRegistry
@@ -71,21 +73,25 @@ def discover(
     else:
         raise typer.BadParameter(f"unknown provider {provider!r}; use gemini or groq")
 
-    with RunLogger(run_id) as run_log, SessionRegistry(headless=headless) as sessions:
-        # The CLI owns the registry, so the CLI opens the session. The run only attaches to
-        # it, and never closes it: that inversion is the whole of C1.
-        sessions.open(run_id)
-        session = sessions.attach(run_id)
-        session.lock.acquire("automation", by=run_id)
+    try:
+        with RunLogger(run_id) as run_log, SessionRegistry(headless=headless) as sessions:
+            # The CLI owns the registry, so the CLI opens the session. The run only attaches
+            # to it, and never closes it: that inversion is the whole of C1.
+            sessions.open(run_id)
+            session = sessions.attach(run_id)
+            session.lock.acquire("automation", by=run_id)
 
-        runner = DiscoveryRunner(
-            surface=WebSurface(session.page, session.lock),
-            llm=llm,
-            policy=engine,
-            logger=run_log,
-            config=config,
-        )
-        result = runner.run()
+            runner = DiscoveryRunner(
+                surface=WebSurface(session.page, session.lock),
+                llm=llm,
+                policy=engine,
+                logger=run_log,
+                config=config,
+            )
+            result = runner.run()
+    except (DiscoveryError, ClosedSchemaViolation, LLMError) as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
 
     typer.echo(f"{result.stop_reason} after {result.steps} steps -> {result.evidence_path}")
     if result.stop_reason != "goal_reached":
@@ -119,7 +125,21 @@ def replay(
     if offline:
         raise typer.BadParameter("--offline needs the recorded-fixture surface, which is not built")
 
-    artifact = load_capability(capability)
+    from cua.replay.engine import ReplayError, validate_params
+
+    try:
+        artifact = load_capability(capability)
+        # Validated before a browser is launched: a misspelled parameter should cost
+        # nothing, and the error the caller sees should be the one that matters.
+        supplied = json.loads(params)
+        validate_params(artifact.parameters, supplied)
+    except json.JSONDecodeError as exc:
+        typer.echo(f"error: --params is not valid JSON: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    except ReplayError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
     if tenant and tenant != artifact.app.tenant_id:
         raise typer.BadParameter(
             f"{capability} was recorded for tenant {artifact.app.tenant_id!r}; "
@@ -148,7 +168,7 @@ def replay(
             policy=engine,
             logger=run_log,
             resolver=Resolver(page=page, actionable=can_act_through),
-        ).run(artifact, json.loads(params), attended=attended)
+        ).run(artifact, supplied, attended=attended)
 
     typer.echo(json.dumps(result.model_dump(mode="json"), indent=2))
     if result.status == "failure":
