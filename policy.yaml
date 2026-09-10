@@ -1,0 +1,37 @@
+# Global safety policy. Every action passes PolicyEngine.check() against this file (C2).
+# Per-capability policy overrides live in the capability artifact, not here.
+
+allowlist:
+  # Only the local surfaces: the self-hosted OSS target app and the fault-injection harness.
+  hosts:
+    - "localhost:*"
+    - "127.0.0.1:*"
+  routes:
+    - "/*"
+  actions:
+    - navigate
+    - click
+    - type
+    - select
+    - press_key
+    - wait_for
+    - extract
+
+limits:
+  max_steps: 25
+  max_wall_clock_seconds: 300
+
+risk:
+  # A click on a control matching these is risky: allowed during discovery, and on replay
+  # only when a human approved the capability and the step was actually recorded.
+  risky:
+    - submit
+    - save
+    - create
+  # These are never model-approved. They block and escalate to a human, in both modes.
+  irreversible:
+    - delete
+    - transfer
+    - close
+    - disburse
+    - wire

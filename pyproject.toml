@@ -1,0 +1,63 @@
+[project]
+name = "cua"
+version = "0.1.0"
+description = "Discover a UI capability with an LLM, record it as a typed artifact, replay it deterministically."
+requires-python = ">=3.11"
+dependencies = [
+    "typer>=0.12",
+    "pydantic>=2.7",
+    "httpx>=0.28.1",
+    "playwright>=1.62.0",
+    "pyyaml>=6.0.3",
+    "python-dotenv>=1.2.3",
+]
+
+[project.scripts]
+cua = "cua.cli:app"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "pytest>=8",
+    "types-pyyaml>=6.0.12.20260906",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cua"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+# design docs contain python code blocks; ruff must not reformat them
+extend-exclude = ["*.md"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "I",    # import sorting
+    "UP",   # pyupgrade
+    "B",    # bugbear
+    "ANN",  # every function is annotated
+    "BLE",  # no blind except
+    "T20",  # no print in library code
+    "RUF",
+]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+mypy_path = ["src", "tests"]
+warn_unreachable = true
+disallow_any_unimported = true
+files = ["src", "tests", "apps"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

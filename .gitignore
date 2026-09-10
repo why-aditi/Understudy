@@ -1,0 +1,26 @@
+# secrets
+.env
+
+# run output — may contain captured page state
+evidence/
+
+# browser artifacts
+.playwright/
+playwright-report/
+test-results/
+*.webm
+*.trace.zip
+screenshots/
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+build/
+dist/
+
+# tool caches
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
