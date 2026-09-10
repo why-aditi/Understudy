@@ -139,7 +139,8 @@ Stated plainly because it is the first thing worth checking:
 
 The target app is deliberately legacy-shaped: nested table layout, generated ids, a frameset
 screen, and query-param flags that inject `not_found`, `permission`, `timeout`, `modal` and
-`slow` failures on demand. A second tenant variant renames two labels and reorders a column.
+`slow` failures on demand. A second tenant variant renames three labels, reorders a column
+and bumps its footer version — a tenant is a row in one config table, not a fork.
 
 ---
 
@@ -223,7 +224,7 @@ read the source**, not by convention.
   belongs to whoever owns the registry; `attach()` only ever returns one that already
   exists, so a run cannot create a browser by asking for it, and never closes one.
   *Enforced:* no module under `discovery/`, `replay/` or `recording/` may launch or close a
-  browser, and `sync_playwright` appears in exactly one file in the tree.
+  browser, and `sync_playwright` appears in exactly one file under `src/`.
 - **C2 — one action chokepoint.** Every action passes `PolicyEngine.check()` before touching
   a surface. *Enforced:* an AST test fails on any `Surface.act()` call whose function never
   obtained a `PolicyVerdict`.
@@ -274,7 +275,8 @@ computed per control and anything notable is written into a `findings` list in p
 sentences. `deterministic` is deliberately stricter than the pass rate: ten passes that each
 resolve through a different candidate are ten passes and no determinism at all.
 
-Written to `evidence/stability/replay-x10.json`.
+Written to `evidence/stability/replay-x10.json`, alongside the drift verdict in
+`drift-x10.json`.
 
 **A finding this command produced on its first real use.** Replaying the same capability for a
 *different* member fails 10/10:
@@ -291,8 +293,13 @@ Every candidate the synthesizer recorded for that control is tied to the data th
 to be on screen at record time — `role_name` on *the member's own name*, anchors on their id
 and status. The one structural, data-independent candidate is `region_ordinal`, and the web
 surface cannot act through it. So a capability with a `member_id` parameter only works for the
-member it was recorded against. That is measured, not suspected, and it is the next thing to
-fix in the synthesizer.
+member it was recorded against. That is measured, not suspected, and it is **the most
+significant known defect in this build**: teaching the synthesizer to prefer structural
+candidates over data-dependent ones is the next thing to fix.
+
+Drift detection now acts on it rather than only reporting it — the same run ends with a
+verdict to demote `member.search` to draft, which is the correct answer to "this artifact
+does not work against the screen as it is now".
 
 ---
 
@@ -372,10 +379,11 @@ the result goes back to the model as user content because `Message` carries no
 
 ## One capability, two tenants
 
-tenant-b is the same app under a different config: rebranded, "Member ID" renamed to
-"Account Holder ID", a reordered column, a bumped footer version. The capability recorded
-against tenant-a runs there **without being re-recorded**. The only new artifact is an
-overlay — eight field paths and their replacement values.
+tenant-b is the same app under a different config: rebranded, "Member ID" → "Account Holder
+ID", "Savings Balance" → "Deposit Balance", "Sub-accounts" → "Linked accounts", a reordered
+column and a bumped footer version. The capability recorded against tenant-a runs there
+**without being re-recorded**. The only new artifact is an overlay — eight field paths and
+their replacement values.
 
 ```bash
 cua replay --capability member.search --params '{"member_id": "12345"}'
@@ -420,7 +428,8 @@ tenant-b but deliberately leaves the label alone, so the capability arrives stil
   drift signals (10 run(s)):
     - enter-id: resolved through a non-primary candidate in 100% of runs
       (primary=role_name; anchor_relative 10x).
-  DEMOTED to draft: member.search may no longer replay unattended
+  verdict: demote member.search to draft (it may no longer replay unattended)
+  not written back: tenant run, so the overlay needs review, not the base
 ```
 
 Ten out of ten passed. A pass rate alone would have called that healthy. The recorded primary
@@ -531,6 +540,8 @@ logging only, and no `print` in library code. An AST test also fails the build i
 log field shadows a `LogRecord` attribute — that one is invisible until a handler puts the
 logger at INFO, and then it is fatal.
 
-CI runs lint, types and tests on every push. It installs Chromium, because locator synthesis
-is verified against a real accessibility tree rather than a mock of one. It makes no model
-calls and needs no secrets.
+CI runs lint, types and tests on every push, over `src/`, `tests/`, `apps/` and `scripts/`.
+It installs Chromium, because locator synthesis is verified against a real accessibility tree
+rather than a mock of one. It makes no model calls and needs no secrets — which is also why
+the two scripts under `scripts/` are checked but never executed there: one needs a Windows
+accessibility API, the other needs an API key.

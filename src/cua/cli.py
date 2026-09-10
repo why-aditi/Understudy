@@ -392,14 +392,17 @@ def stability(
     verdict_path = path.with_name(f"drift-x{report.runs}.json")
     verdict_path.write_text(verdict.model_dump_json(indent=2), encoding="utf-8")
 
-    if verdict.demote and demote:
+    if verdict.demote:
         if tenant:
             # A resolved overlay is not an artifact on disk, so there is nothing to write
             # back. Demoting the base because a tenant's overlay has rotted would blame
             # the wrong thing - the overlay is what needs review.
-            typer.echo("  (tenant run: the overlay needs review, the base is untouched)")
+            typer.echo("  not written back: tenant run, so the overlay needs review, not the base")
+        elif not demote:
+            typer.echo("  not written back: --no-demote")
         else:
-            save_capability(drift_module.demote(artifact, verdict, report))
+            written = save_capability(drift_module.demote(artifact, verdict, report))
+            typer.echo(f"  written back to draft: {written}")
 
     typer.echo("")
     typer.echo(f"written to {path} and {verdict_path}")

@@ -182,7 +182,12 @@ def render(verdict: DriftVerdict) -> str:
     lines = [f"  drift signals ({verdict.runs} run(s)):"]
     lines.extend(f"    - {signal}" for signal in verdict.signals)
     if verdict.demote:
-        lines.append(f"  DEMOTED to draft: {verdict.capability_id} may no longer replay unattended")
+        # States the verdict, not the action. Whether it was acted on is the caller's to
+        # report - saying "DEMOTED" here would be a lie under --no-demote.
+        lines.append(
+            f"  verdict: demote {verdict.capability_id} to draft "
+            f"(it may no longer replay unattended)"
+        )
     elif verdict.withheld:
         lines.append("  not demoted: too few runs to act on")
     else:

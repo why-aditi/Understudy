@@ -68,7 +68,13 @@ strict = true
 mypy_path = ["src", "tests"]
 warn_unreachable = true
 disallow_any_unimported = true
-files = ["src", "tests", "apps"]
+files = ["src", "tests", "apps", "scripts"]
+
+# uiautomation ships no py.typed and exists only on Windows, so the desktop proof would
+# otherwise be the one deliverable script mypy could not check at all.
+[[tool.mypy.overrides]]
+module = "uiautomation.*"
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

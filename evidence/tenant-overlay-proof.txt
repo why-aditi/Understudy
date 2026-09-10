@@ -60,8 +60,8 @@ so the capability arrives at tenant-b still looking for a textbox named "Member 
     drift signals (10 run(s)):
       - enter-id: resolved through a non-primary candidate in 100% of runs
         (primary=role_name; anchor_relative 10x).
-    DEMOTED to draft: member.search may no longer replay unattended
-    (tenant run: the overlay needs review, the base is untouched)
+    verdict: demote member.search to draft (it may no longer replay unattended)
+    not written back: tenant run, so the overlay needs review, not the base
 
 **Ten out of ten passed.** Nothing failed, nothing timed out, and a pass rate alone would
 have called this healthy. The recorded primary for `enter-id` is dead on this surface -

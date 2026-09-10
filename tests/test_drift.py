@@ -106,7 +106,7 @@ def test_ten_passing_runs_on_a_fallback_still_demote() -> None:
     assert verdict.demote is True
     assert verdict.fallback_controls == {"read-balance": pytest.approx(1.0)}
     assert "non-primary" in verdict.signals[0]
-    assert "DEMOTED" in render(verdict)
+    assert "demote" in render(verdict)
 
 
 def test_exactly_at_the_rate_counts_as_crossing_it() -> None:
